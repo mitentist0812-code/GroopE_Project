@@ -1,0 +1,95 @@
+{% extends "shared/base.html" %}
+
+{% block title %}予約管理 - 一飯一会{% endblock %}
+{% block body_class %}page-restaurant page-reservation-management{% endblock %}
+{% block active_nav %}{% endblock %}
+{% block navigation_script %}{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+{% block sidebar %}{% endblock %}
+{% block content %}
+<a href="{{ url_for('restaurants.menu_management') }}" class="back-link">← 店舗メニュー管理へ戻る</a>
+    <h2>予約管理</h2>
+    <p class="page-intro">店舗への予約内容を確認し、必要に応じてキャンセルできます。</p>
+
+    <section class="restaurant-card reservations-card" aria-labelledby="reservation-list-title">
+      <div class="restaurant-section-heading">
+        <h3 id="reservation-list-title">予約一覧 <span id="reservation-count">0件</span></h3>
+      </div>
+      <p class="restaurant-storage-note">現在は画面確認用のサンプル予約を表示しています。キャンセル操作はこの画面上のみで、予約データとの連携にはサーバー接続が必要です。</p>
+      <p id="reservation-status" class="restaurant-status" role="status" aria-live="polite"></p>
+      <ul id="reservation-list" class="reservation-list"></ul>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const list = document.querySelector("#reservation-list");
+      const count = document.querySelector("#reservation-count");
+      const status = document.querySelector("#reservation-status");
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(18, 0, 0, 0);
+      const followingDay = new Date(tomorrow);
+      followingDay.setDate(followingDay.getDate() + 1);
+      followingDay.setHours(12, 0, 0, 0);
+      const reservations = [
+        { date: tomorrow, guests: 2, email: "guest-a@example.com", phone: "000-0000-0000" },
+        { date: followingDay, guests: 4, email: "guest-b@example.com", phone: "" }
+      ];
+
+      const renderReservations = () => {
+        list.replaceChildren();
+        count.textContent = `${reservations.length}件`;
+
+        reservations.forEach((reservation, index) => {
+          const item = document.createElement("li");
+          item.className = "reservation-item";
+
+          const details = document.createElement("div");
+          details.className = "reservation-details";
+
+          const dateTime = document.createElement("strong");
+          dateTime.textContent = new Intl.DateTimeFormat("ja-JP", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+          }).format(reservation.date);
+
+          const guests = document.createElement("span");
+          guests.textContent = `${reservation.guests}名`;
+          const email = document.createElement("span");
+          email.textContent = reservation.email;
+          const phone = document.createElement("span");
+          phone.textContent = reservation.phone ? `電話番号：${reservation.phone}` : "電話番号：未登録";
+          details.append(dateTime, guests, email, phone);
+
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "restaurant-remove-button";
+          removeButton.textContent = "予約をキャンセル";
+          removeButton.setAttribute("aria-label", `${dateTime.textContent}の予約をキャンセル`);
+          removeButton.addEventListener("click", () => {
+            reservations.splice(index, 1);
+            renderReservations();
+            status.textContent = "予約をキャンセルしました。";
+          });
+
+          item.append(details, removeButton);
+          list.append(item);
+        });
+
+        if (reservations.length === 0) {
+          status.textContent = "予約はありません。";
+        }
+      };
+
+      renderReservations();
+    });
+  </script>
+{% endblock %}

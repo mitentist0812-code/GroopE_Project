@@ -1,0 +1,299 @@
+{% extends "shared/base.html" %}
+
+{% block title %}店舗メニュー管理 - 一飯一会{% endblock %}
+{% block body_class %}page-restaurant{% endblock %}
+{% block active_nav %}{% endblock %}
+{% block navigation_script %}{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+{% block sidebar %}{% endblock %}
+{% block content %}
+<a href="{{ url_for('restaurants.restaurant') }}" class="back-link">← 店舗管理に戻る</a>
+    <h2>店舗メニュー管理</h2>
+    <p class="page-intro">料理名、値段、おおよそのカロリーを登録できます。CSVファイルを使って複数のメニューをまとめて追加することもできます。</p>
+
+    <section class="restaurant-card" aria-labelledby="add-menu-title">
+      <h3 id="add-menu-title">メニューを手入力で追加</h3>
+      <form id="menu-form" class="restaurant-form">
+        <div class="restaurant-fields">
+          <div class="restaurant-field">
+            <label for="dish-name">料理名</label>
+            <input type="text" id="dish-name" name="dishName" maxlength="100" placeholder="例：日替わり定食" required>
+          </div>
+          <div class="restaurant-field">
+            <label for="dish-price">値段（税込・円）</label>
+            <input type="number" id="dish-price" name="price" min="0" step="1" placeholder="例：980" required>
+          </div>
+          <div class="restaurant-field">
+            <label for="dish-calories">おおよそのカロリー（kcal）</label>
+            <input type="number" id="dish-calories" name="calories" min="0" step="1" placeholder="例：650" required>
+          </div>
+        </div>
+        <button type="submit" class="restaurant-primary-button">店舗メニューに追加</button>
+      </form>
+    </section>
+
+    <section class="restaurant-card csv-card" aria-labelledby="csv-title">
+      <div class="restaurant-section-heading">
+        <div>
+          <h3 id="csv-title">CSVファイルから追加</h3>
+          <p>CSVの1行目に項目名を入れ、2行目以降にメニューを記載してください。</p>
+        </div>
+        <button type="button" id="download-template" class="restaurant-secondary-button">CSVテンプレート</button>
+      </div>
+      <div class="csv-format" aria-label="CSVの列順">
+        <span>料理名</span><span>値段</span><span>おおよそのカロリー(kcal)</span>
+      </div>
+      <p class="csv-example">例：日替わり定食,980,650</p>
+      <form id="csv-form" class="csv-form">
+        <label for="menu-csv">メニューCSVファイル（UTF-8、1MBまで）</label>
+        <input type="file" id="menu-csv" accept=".csv,text/csv" required>
+        <button type="submit" class="restaurant-primary-button">CSVを読み込んで追加</button>
+      </form>
+      <p class="csv-note">CSVの全行を検証してから追加します。エラーがある場合は、内容を修正して再度読み込んでください。</p>
+    </section>
+
+    <section class="restaurant-card registered-menu-card" aria-labelledby="registered-menu-title">
+      <div class="restaurant-section-heading">
+        <h3 id="registered-menu-title">登録メニュー <span id="menu-count">0件</span></h3>
+      </div>
+      <p class="restaurant-storage-note">この画面の登録内容はページを閉じると消えます。店舗データへの保存・公開にはサーバー連携が必要です。</p>
+      <p id="menu-status" class="restaurant-status" role="status" aria-live="polite">まだメニューは登録されていません。</p>
+      <ul id="menu-list" class="restaurant-menu-list"></ul>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const menuForm = document.querySelector("#menu-form");
+      const csvForm = document.querySelector("#csv-form");
+      const csvInput = document.querySelector("#menu-csv");
+      const menuList = document.querySelector("#menu-list");
+      const menuCount = document.querySelector("#menu-count");
+      const status = document.querySelector("#menu-status");
+      const menus = [];
+
+      const updateMenuList = () => {
+        menuList.replaceChildren();
+        menuCount.textContent = `${menus.length}件`;
+
+        menus.forEach((menu, index) => {
+          const item = document.createElement("li");
+          item.className = "restaurant-menu-item";
+
+          const details = document.createElement("div");
+          details.className = "restaurant-menu-details";
+
+          const name = document.createElement("strong");
+          name.textContent = menu.name;
+          const values = document.createElement("span");
+          values.textContent = `${menu.price.toLocaleString("ja-JP")}円 ・ 約${menu.calories.toLocaleString("ja-JP")}kcal`;
+          details.append(name, values);
+
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "restaurant-remove-button";
+          removeButton.textContent = "削除";
+          removeButton.setAttribute("aria-label", `${menu.name}を削除`);
+          removeButton.addEventListener("click", () => {
+            menus.splice(index, 1);
+            updateMenuList();
+            status.textContent = `${menu.name}を一覧から削除しました。`;
+          });
+
+          item.append(details, removeButton);
+          menuList.append(item);
+        });
+
+        if (menus.length === 0) {
+          status.textContent = "まだメニューは登録されていません。";
+        }
+      };
+
+      const addMenus = (newMenus, message) => {
+        menus.push(...newMenus);
+        updateMenuList();
+        status.textContent = message;
+      };
+
+      menuForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!menuForm.reportValidity()) return;
+
+        const formData = new FormData(menuForm);
+        const nameInput = document.querySelector("#dish-name");
+        const priceInput = document.querySelector("#dish-price");
+        const caloriesInput = document.querySelector("#dish-calories");
+        const price = Number(formData.get("price"));
+        const calories = Number(formData.get("calories"));
+        if (!Number.isSafeInteger(price) || !Number.isSafeInteger(calories)) {
+          if (!Number.isSafeInteger(price)) priceInput.setCustomValidity("値段は0以上の整数で入力してください。");
+          if (!Number.isSafeInteger(calories)) caloriesInput.setCustomValidity("カロリーは0以上の整数で入力してください。");
+          menuForm.reportValidity();
+          return;
+        }
+        const menu = {
+          name: formData.get("dishName").trim(),
+          price,
+          calories
+        };
+        if (!menu.name) {
+          nameInput.setCustomValidity("料理名を入力してください。");
+          nameInput.reportValidity();
+          return;
+        }
+
+        addMenus([menu], `${menu.name}をメニューに追加しました。`);
+        menuForm.reset();
+      });
+
+      menuForm.addEventListener("input", (event) => {
+        if (event.target instanceof HTMLInputElement) event.target.setCustomValidity("");
+      });
+
+      const parseCsv = (text) => {
+        const rows = [];
+        let row = [];
+        let cell = "";
+        let inQuotes = false;
+        let afterQuote = false;
+        let line = 1;
+        let rowLine = 1;
+
+        for (let i = 0; i < text.length; i += 1) {
+          const char = text[i];
+
+          if (inQuotes) {
+            if (char === '"') {
+              if (text[i + 1] === '"') {
+                cell += '"';
+                i += 1;
+              } else {
+                inQuotes = false;
+                afterQuote = true;
+              }
+            } else {
+              cell += char;
+              if (char === "\n") line += 1;
+            }
+            continue;
+          }
+
+          if (char === '"' && cell.length === 0 && !afterQuote) {
+            inQuotes = true;
+          } else if (char === '"') {
+            throw new Error(`CSV ${line}行目: 引用符は項目の先頭で使用してください。`);
+          } else if (char === "," ) {
+            row.push(cell.trim());
+            cell = "";
+            afterQuote = false;
+          } else if (char === "\r" || char === "\n") {
+            row.push(cell.trim());
+            if (row.some((value) => value !== "")) rows.push({ values: row, line: rowLine });
+            row = [];
+            cell = "";
+            afterQuote = false;
+            if (char === "\r" && text[i + 1] === "\n") i += 1;
+            line += 1;
+            rowLine = line;
+          } else if (afterQuote && char.trim() !== "") {
+            throw new Error(`CSV ${line}行目: 引用符の後に予期しない文字があります。`);
+          } else {
+            cell += char;
+          }
+        }
+
+        if (inQuotes) throw new Error(`CSV ${rowLine}行目: 引用符が閉じられていません。`);
+        row.push(cell.trim());
+        if (row.some((value) => value !== "")) rows.push({ values: row, line: rowLine });
+        return rows;
+      };
+
+      csvForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!csvForm.reportValidity()) return;
+
+        const file = csvInput.files[0];
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          status.textContent = "CSVファイルを選択してください。";
+          return;
+        }
+        if (file.size > 1024 * 1024) {
+          status.textContent = "ファイルサイズが1MBを超えています。";
+          return;
+        }
+
+        let rows;
+        try {
+          const text = (await file.text()).replace(/^\uFEFF/, "");
+          rows = parseCsv(text);
+        } catch (error) {
+          status.textContent = error instanceof Error
+            ? `CSVを読み込めませんでした。${error.message}`
+            : "CSVを読み込めませんでした。ファイルを確認してください。";
+          return;
+        }
+
+        if (rows.length < 2) {
+          status.textContent = "CSVにメニューのデータ行がありません。";
+          return;
+        }
+        if (rows.length > 501) {
+          status.textContent = "一度に追加できるメニューは500件までです。";
+          return;
+        }
+
+        const expectedHeaders = ["料理名", "値段", "おおよそのカロリー(kcal)"];
+        const headers = rows[0].values.map((value) => value.trim());
+        if (headers.length !== expectedHeaders.length ||
+            headers.some((value, index) => value !== expectedHeaders[index])) {
+          status.textContent = `CSVの1行目は「${expectedHeaders.join(",")}」にしてください。`;
+          return;
+        }
+
+        const importedMenus = [];
+        const errors = [];
+        rows.slice(1).forEach(({ values, line }) => {
+          if (values.length !== 3) {
+            errors.push(`${line}行目: 料理名・値段・カロリーの3項目が必要です。`);
+            return;
+          }
+
+          const [name, priceText, caloriesText] = values;
+          const price = Number(priceText);
+          const calories = Number(caloriesText);
+          if (!name) errors.push(`${line}行目: 料理名を入力してください。`);
+          const validPrice = /^\d+$/.test(priceText) && Number.isSafeInteger(price);
+          const validCalories = /^\d+$/.test(caloriesText) && Number.isSafeInteger(calories);
+          if (!validPrice) errors.push(`${line}行目: 値段は0以上の整数で入力してください。`);
+          if (!validCalories) errors.push(`${line}行目: カロリーは0以上の整数で入力してください。`);
+          if (name && validPrice && validCalories) {
+            importedMenus.push({ name, price, calories });
+          }
+        });
+
+        if (errors.length > 0) {
+          status.textContent = `CSVを追加できませんでした。\n${errors.join("\n")}`;
+          return;
+        }
+
+        addMenus(importedMenus, `${importedMenus.length}件のメニューをCSVから追加しました。`);
+        csvForm.reset();
+      });
+
+      document.querySelector("#download-template").addEventListener("click", () => {
+        const csv = "\uFEFF料理名,値段,おおよそのカロリー(kcal)\r\n日替わり定食,980,650\r\n";
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "menu-template.csv";
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      });
+
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "shared/base.html" %}
+
+{% block title %}店舗詳細 - 元気ラーメン{% endblock %}
+{% block body_class %}page-detail{% endblock %}
+{% block active_nav %}top{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('home.results') }}" class="back-link">← 検索結果に戻る</a>
+		<section class="detail-panel" aria-labelledby="shop-title">
+			<div class="hero">
+				<div class="hero-image" aria-label="店舗画像">店舗画像</div>
+				<div>
+					<div class="hero-heading">
+						<h2 id="shop-title">元気ラーメン</h2>
+						<a href="{{ url_for('restaurants.reservation_form') }}" class="button button-primary reservation-button">予約する</a>
+					</div>
+					<button type="button" class="favorite-button active" id="favoriteButton">
+						♥ お気に入り登録済み
+					</button>
+					<p class="rating">★ 4.3（128件の口コミ）</p>
+					<p class="hero-description">こだわりの濃厚スープとボリュームのある一杯が人気のラーメン店です。</p>
+				</div>
+			</div>
+
+			<div class="info-grid">
+				<div class="info-item"><span class="info-label">住所</span><span class="info-value">東京都〇〇区〇〇町1-2-3</span></div>
+				<div class="info-item"><span class="info-label">アクセス</span><span class="info-value">〇〇駅から徒歩6分（約450m）</span></div>
+				<div class="info-item"><span class="info-label">営業時間</span><span class="info-value">11:00～22:00<br>定休日：火曜日</span></div>
+				<div class="info-item"><span class="info-label">予算</span><span class="info-value">1,000～1,500円</span></div>
+			</div>
+		</section>
+
+		<section class="review-section" aria-labelledby="review-title">
+			<div class="review-heading">
+				<h3 id="review-title">レビュー一覧</h3>
+
+				<label>
+					<select class="review-sort" id="reviewSort" aria-label="レビューの並び替え">
+						<option value="rating-desc">高評価順</option>
+						<option value="rating-asc">低評価順</option>
+						<option value="newest">新しい順</option>
+						<option value="oldest">古い順</option>
+					</select>
+				</label>
+			</div>
+
+			<ul class="review-list" id="reviewList">
+				<li class="review-item" data-rating="5" data-date="2026-09-29">
+					<div class="review-avatar">ご</div>
+					<div>
+						<div class="review-user">
+							<span class="review-name">ごはん好き</span>
+							<span class="review-date">2026年9月29日</span>
+						</div>
+						<span class="review-rating">★★★★★</span>
+						<p class="review-text">
+							スープが濃厚で、とてもおいしかったです。
+						</p>
+					</div>
+				</li>
+
+				<li class="review-item" data-rating="4" data-date="2026-09-22">
+					<div class="review-avatar">ラ</div>
+					<div>
+						<div class="review-user">
+							<span class="review-name">ラーメン太郎</span>
+							<span class="review-date">2026年9月22日</span>
+						</div>
+						<span class="review-rating">★★★★☆</span>
+						<p class="review-text">
+							ボリュームがあり、満足できました。
+						</p>
+					</div>
+				</li>
+
+				<li class="review-item" data-rating="1" data-date="2026-09-30">
+					<div class="review-avatar">麺</div>
+					<div>
+						<div class="review-user">
+							<span class="review-name">麺の迷子</span>
+							<span class="review-date">2026年9月30日</span>
+						</div>
+						<span class="review-rating">★☆☆☆☆</span>
+						<p class="review-text">
+							ラーメンを食べたはずなのに、気づいたら宇宙が味噌汁になっていて、
+							箸だけが昨日の方向を指していました。麺はたぶん会議に出席していたので、
+							料理としての存在感がありませんでした。
+						</p>
+					</div>
+				</li>
+			</ul>
+
+			<button type="button" class="review-button" id="reviewButton">
+				レビューをする
+			</button>
+
+			<dialog class="review-dialog" id="reviewDialog">
+				<form method="dialog">
+					<h3>レビューをする</h3>
+
+					<label>評価</label>
+					<div class="rating-stars" id="ratingStars" aria-label="評価">
+						<button type="button" class="rating-star" data-rating="1">★</button>
+						<button type="button" class="rating-star" data-rating="2">★</button>
+						<button type="button" class="rating-star" data-rating="3">★</button>
+						<button type="button" class="rating-star" data-rating="4">★</button>
+						<button type="button" class="rating-star" data-rating="5">★</button>
+					</div>
+					<input type="hidden" id="reviewRating" name="rating" required>
+
+					<label for="reviewText">レビュー内容</label>
+					<textarea id="reviewText" required
+						placeholder="レビューを入力してください"></textarea>
+
+					<div class="dialog-actions">
+						<button type="button" class="button button-secondary" id="closeReview">
+							キャンセル
+						</button>
+						<button type="submit" class="review-button">
+							投稿する
+						</button>
+					</div>
+				</form>
+			</dialog>
+		</section>
+
+		<div class="actions">
+			<a href="{{ url_for('home.results') }}" class="button button-secondary">一覧に戻る</a>
+			<a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
+		</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const favoriteButton = document.getElementById("favoriteButton");
+    const reviewButton = document.getElementById("reviewButton");
+    const reviewDialog = document.getElementById("reviewDialog");
+    const closeReview = document.getElementById("closeReview");
+
+    let isFavorite = true;
+
+    favoriteButton.addEventListener("click", () => {
+        isFavorite = !isFavorite;
+        favoriteButton.classList.toggle("active", isFavorite);
+        favoriteButton.textContent = isFavorite
+            ? "♥ お気に入り登録済み"
+            : "♡ お気に入り登録";
+    });
+
+    reviewButton.addEventListener("click", () => reviewDialog.showModal());
+    closeReview.addEventListener("click", () => reviewDialog.close());
+
+    const ratingStars = document.querySelectorAll(".rating-star");
+    const reviewRating = document.getElementById("reviewRating");
+
+    ratingStars.forEach((star) => {
+        star.addEventListener("click", () => {
+            const selectedRating = Number(star.dataset.rating);
+            reviewRating.value = selectedRating;
+            ratingStars.forEach((item) => {
+                item.classList.toggle("active", Number(item.dataset.rating) <= selectedRating);
+            });
+        });
+    });
+
+    const reviewSort = document.getElementById("reviewSort");
+    const reviewList = document.getElementById("reviewList");
+
+    reviewSort.addEventListener("change", () => {
+        const reviews = [...reviewList.querySelectorAll(".review-item")];
+        reviews.sort((a, b) => {
+            switch (reviewSort.value) {
+                case "rating-asc":
+                    return Number(a.dataset.rating) - Number(b.dataset.rating);
+                case "newest":
+                    return new Date(b.dataset.date) - new Date(a.dataset.date);
+                case "oldest":
+                    return new Date(a.dataset.date) - new Date(b.dataset.date);
+                default:
+                    return Number(b.dataset.rating) - Number(a.dataset.rating);
+            }
+        });
+        reviews.forEach((review) => reviewList.appendChild(review));
+    });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const sidebar = document.querySelector("#sidebar");
+        const toggle = document.querySelector(".sidebar-toggle");
+        if (!sidebar || !toggle) return;
+
+        const setOpen = (open) => {
+            sidebar.classList.toggle("is-open", open);
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+        };
+
+        toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+        sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+        document.addEventListener("click", (event) => {
+            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+        });
+    });
+</script>
+{% endblock %}

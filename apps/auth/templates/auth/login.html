@@ -1,0 +1,51 @@
+{% extends "shared/base.html" %}
+
+{% block title %}ログイン - 一飯一会{% endblock %}
+{% block body_class %}page-login{% endblock %}
+{% block active_nav %}{% endblock %}
+{% block navigation_script %}{% endblock %}
+{% block logout_script %}{% endblock %}
+
+{% block page_layout %}
+<main class="login-shell">
+        <header class="brand">
+            <div class="brand-mark" aria-hidden="true">食</div>
+            <h1><a href="{{ url_for('auth.login') }}">一飯一会</a></h1>
+            <p>あなたにぴったりの食事を見つけよう</p>
+        </header>
+
+        <section class="login-panel" aria-labelledby="login-title">
+            <h2 id="login-title">ログイン</h2>
+
+            <form action="{{ url_for('home.top') }}" method="get">
+                <div class="field">
+                    <label for="email">メールアドレス</label>
+                    <input type="email" id="email" name="email" placeholder="example@example.com" autocomplete="email" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">パスワード</label>
+                    <input type="password" id="password" name="password" placeholder="パスワードを入力" autocomplete="current-password" required>
+                </div>
+
+                <div class="password-options">
+                    <label class="remember" for="remember">
+                        <input type="checkbox" id="remember" name="remember">
+                        ログイン状態を保持する
+                    </label>
+                    <a href="#">パスワードを忘れた方</a>
+                </div>
+
+                <button type="submit" class="submit-button">ログイン</button>
+            </form>
+
+            <div class="divider">または</div>
+            <a href="{{ url_for('auth.signup') }}" class="register-link">アカウントをお持ちでない方はこちら</a>
+
+        </section>
+
+        <p class="footer-note">© 一飯一会</p>
+    </main>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

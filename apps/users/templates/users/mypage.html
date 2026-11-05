@@ -1,0 +1,90 @@
+{% extends "shared/base.html" %}
+
+{% block title %}マイページ - 一飯一会{% endblock %}
+{% block body_class %}page-mypage{% endblock %}
+{% block active_nav %}mypage{% endblock %}
+{% block account_actions %}
+<button type="button" class="mode-toggle" aria-label="飲食店モードに切り替え" aria-pressed="false">飲食店へ</button>
+      <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<div class="mypage-heading">
+      <p class="mypage-eyebrow">MY PAGE</p>
+      <h2>マイページ</h2>
+      <p>お気に入りや閲覧履歴など、自分の情報を確認できます。</p>
+    </div>
+
+    <section class="mypage-profile" aria-labelledby="mypage-profile-title">
+      <div class="mypage-avatar" aria-hidden="true">ご</div>
+      <div class="mypage-profile-info">
+        <h3 id="mypage-profile-title">ごはん好き</h3>
+        <p>一飯一会ユーザー</p>
+        <p>2026年8月1日から利用しています</p>
+      </div>
+      <a href="{{ url_for('users.setting') }}" class="mypage-profile-link">プロフィール・設定</a>
+    </section>
+
+    <section class="mypage-shortcuts" aria-label="マイメニュー">
+      <a class="mypage-card" href="{{ url_for('users.favorite') }}">
+        <span class="mypage-card-icon" aria-hidden="true">♡</span>
+        <span class="mypage-card-copy">
+          <strong>お気に入り</strong>
+          <span>保存した店舗やレシピを見る</span>
+        </span>
+        <span class="mypage-card-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="mypage-card" href="{{ url_for('users.history') }}">
+        <span class="mypage-card-icon" aria-hidden="true">↺</span>
+        <span class="mypage-card-copy">
+          <strong>閲覧履歴</strong>
+          <span>閲覧した店舗やレシピを振り返る</span>
+        </span>
+        <span class="mypage-card-arrow" aria-hidden="true">→</span>
+      </a>
+    </section>
+
+    <section class="mypage-reservations" aria-labelledby="mypage-reservations-title">
+      <div>
+        <h3 id="mypage-reservations-title">予約</h3>
+        <p>利用者向けの予約確認機能は、現在準備中です。</p>
+      </div>
+      <span class="mypage-coming-soon">準備中</span>
+    </section>
+
+    <section class="mypage-recipes" aria-labelledby="mypage-recipes-title">
+      <div class="mypage-recipes-heading">
+        <div>
+          <h3 id="mypage-recipes-title">投稿したレシピ</h3>
+          <p>あなたが投稿したレシピを確認できます。</p>
+        </div>
+        <a href="{{ url_for('recipes.post_recipe') }}">レシピを投稿する</a>
+      </div>
+      <p id="mypage-recipes-message" class="mypage-recipes-message" aria-live="polite">投稿したレシピはまだありません。</p>
+      <div id="mypage-recipes-list" class="mypage-recipes-list"></div>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recipes.js') }}" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const sidebar = document.querySelector("#sidebar");
+      const toggle = document.querySelector(".sidebar-toggle");
+      if (!sidebar || !toggle) return;
+
+      const setOpen = (open) => {
+        sidebar.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+      };
+
+      toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+      sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+      document.addEventListener("click", (event) => {
+        if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+        if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+      });
+    });
+  </script>
+{% endblock %}

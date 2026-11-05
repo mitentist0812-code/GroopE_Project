@@ -1,0 +1,307 @@
+{% extends "shared/base.html" %}
+
+{% block title %}検索結果 - 一飯一会{% endblock %}
+{% block body_class %}page-kekka{% endblock %}
+{% block active_nav %}top{% endblock %}
+
+{% block content %}
+<h2>検索結果</h2>
+
+        <!-- 入力条件 -->
+        <div class="conditions">
+            <h3>検索条件</h3>
+
+            <div class="condition-item">
+                <span class="condition-label">今の気分：</span>
+                テストで疲れた。ガッツリ食べたい。
+            </div>
+
+            <div class="condition-item">
+                <span class="condition-label">予算：</span>
+                1,500円
+            </div>
+
+            <div class="condition-item">
+                <span class="condition-label">料理ジャンル：</span>
+                なし
+            </div>
+        </div>
+
+        <div class="result-tabs" role="tablist">
+            <button type="button" class="result-tab active" role="tab" aria-selected="true" aria-controls="shop-panel" data-target="shop-panel">店舗</button>
+            <button type="button" class="result-tab" role="tab" aria-selected="false" aria-controls="recipe-list-panel" data-target="recipe-list-panel">レシピ</button>
+        </div>
+
+        <!-- 検索結果 -->
+        <div id="shop-panel" class="result-panel active" role="tabpanel">
+        <div class="result-heading">
+            <h3>おすすめのお店</h3>
+
+            <label for="sortOrder" class="sort-label">並び替え</label>
+            <select id="sortOrder">
+                <option value="distance">距離順</option>
+                <option value="rating">評価順</option>
+            </select>
+        </div>
+
+        <!-- ルーレット起動ボタン -->
+        <div class="roulette-bar">
+            <button type="button" id="start-roulette">
+                ルーレットで決める <span id="selected-count">0店舗</span>
+            </button>
+        </div>
+
+        <div id="resultList">
+            <div class="result" data-distance="450" data-rating="4.3">
+                <span class="favorite-mark" aria-label="お気に入り">♥</span>
+
+                <div class="result-image">
+                    店舗画像
+                </div>
+
+                <div class="result-info">
+                    <h3>元気ラーメン</h3>
+                    <p>⭐ 4.3</p>
+                    <p>📍 約450m</p>
+                    <p>💰 1,000～1,500円</p>
+
+                    <label class="roulette-select">
+                        <input type="checkbox" class="roulette-shop" value="1" data-name="元気ラーメン">
+                        ルーレット候補にする
+                    </label>
+
+                    <a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">
+                        店舗詳細
+                    </a>
+                </div>
+            </div>
+
+            <div class="result" data-distance="700" data-rating="4.1">
+
+                <div class="result-image">
+                    店舗画像
+                </div>
+
+                <div class="result-info">
+                    <h3>スタミナ食堂</h3>
+                    <p>⭐ 4.1</p>
+                    <p>📍 約700m</p>
+                    <p>💰 1,000～1,500円</p>
+
+                    <label class="roulette-select">
+                        <input type="checkbox" class="roulette-shop" value="2" data-name="スタミナ食堂">
+                        ルーレット候補にする
+                    </label>
+
+                    <a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">
+                        店舗詳細
+                    </a>
+                </div>
+            </div>
+
+            <div class="result" data-distance="900" data-rating="4.5">
+
+                <div class="result-image">
+                    店舗画像
+                </div>
+
+                <div class="result-info">
+                    <h3>肉盛り亭</h3>
+                    <p>⭐ 4.5</p>
+                    <p>📍 約900m</p>
+                    <p>💰 1,200～1,500円</p>
+
+                    <label class="roulette-select">
+                        <input type="checkbox" class="roulette-shop" value="3" data-name="肉盛り亭">
+                        ルーレット候補にする
+                    </label>
+
+                    <a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">
+                        店舗詳細
+                    </a>
+                </div>
+            </div>
+
+        </div>
+        </div>
+
+        <!-- レシピ一覧 -->
+        <section id="recipe-list-panel" class="result-panel recipe-panel" role="tabpanel" aria-labelledby="recipe-list-title">
+            <div class="recipe-panel-heading">
+                <h3 id="recipe-list-title">おすすめのレシピ</h3>
+                <div class="recipe-panel-actions">
+                    <label for="recipeSortOrder" class="sort-label">並び替え</label>
+                    <select id="recipeSortOrder" aria-label="レシピの並び替え">
+                        <option value="date">新着順</option>
+                        <option value="rating">評価順</option>
+                    </select>
+                    <a href="{{ url_for('recipes.post_recipe') }}" class="recipe-panel-link">＋ レシピを投稿</a>
+                </div>
+            </div>
+
+            <ul class="recipe-list" id="recipeList">
+                <li class="recipe-item" data-date="2026-10-12" data-rating="4.8">
+                    <div class="recipe-thumb">料理画像</div>
+                    <div class="recipe-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">やみつき豚キムチ丼</a></h4>
+                        <p>材料：豚バラ肉、キムチ、卵 ほか</p>
+                        <p>投稿者：ユーザーA</p>
+                        <p>⭐ 4.8 ・ 投稿日：<time datetime="2026-10-12">2026年10月12日</time></p>
+                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
+                    </div>
+                </li>
+                <li class="recipe-item" data-date="2026-10-08" data-rating="4.6">
+                    <div class="recipe-thumb">料理画像</div>
+                    <div class="recipe-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">ガッツリ唐揚げ</a></h4>
+                        <p>材料：鶏もも肉、片栗粉、しょうゆ ほか</p>
+                        <p>投稿者：ユーザーB</p>
+                        <p>⭐ 4.6 ・ 投稿日：<time datetime="2026-10-08">2026年10月8日</time></p>
+                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
+                    </div>
+                </li>
+                <li class="recipe-item" data-date="2026-10-03" data-rating="4.9">
+                    <div class="recipe-thumb">料理画像</div>
+                    <div class="recipe-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">スタミナ肉野菜炒め</a></h4>
+                        <p>材料：豚こま肉、キャベツ、にんにく ほか</p>
+                        <p>投稿者：ユーザーC</p>
+                        <p>⭐ 4.9 ・ 投稿日：<time datetime="2026-10-03">2026年10月3日</time></p>
+                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
+                    </div>
+                </li>
+            </ul>
+        </section>
+{% endblock %}
+
+{% block after_content %}
+<div id="roulette-modal" class="roulette-modal" hidden>
+        <section class="roulette-content" role="dialog" aria-modal="true" aria-labelledby="roulette-title">
+            <button type="button" id="close-roulette" aria-label="閉じる">&times;</button>
+
+            <div class="roulette-heading">
+                <span class="roulette-icon" aria-hidden="true">◉</span>
+                <h2 id="roulette-title">店舗ルーレット</h2>
+            </div>
+            <p class="roulette-description">選択した店舗の中から、ランダムで1店舗を選びます。</p>
+
+            <div class="slot-machine">
+                <div class="slot-label">TODAY'S DESTINATION</div>
+                <div id="roulette-display" aria-label="店舗名が縦に回転するスロット">
+                    <div class="roulette-reel">
+                        <div class="roulette-item"><span aria-hidden="true">🍽️</span><b>店舗を選択</b></div>
+                    </div>
+                    <div class="slot-highlight" aria-hidden="true"></div>
+                </div>
+                <div class="slot-footer">今日のお店を決めよう</div>
+            </div>
+
+            <div class="roulette-status" id="roulette-status" aria-live="polite">
+                <span class="status-dot" aria-hidden="true">●</span>
+                <div><strong>準備完了！</strong><small>ボタンを押してルーレットを回してください</small></div>
+            </div>
+
+            <div class="winner-card" id="winner-card" hidden>
+                <span class="winner-emoji" aria-hidden="true">🍽️</span>
+                <div class="winner-copy">
+                    <span class="winner-label">当選！</span>
+                    <h3 id="winner-name"></h3>
+                    <p>今回のお店はこちらです。</p>
+                </div>
+            </div>
+
+            <button type="button" id="spin-roulette" class="spin-button">ルーレットを回す！</button>
+            <button type="button" id="retry-roulette" class="retry-button" hidden>もう一度回す</button>
+            <p id="roulette-result" class="roulette-result" aria-live="polite"></p>
+            <p class="roulette-footnote">選択した店舗はすべて同じ確率で抽選されます。</p>
+        </section>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const resultTabs = document.querySelectorAll(".result-tab");
+        const resultPanels = document.querySelectorAll(".result-panel");
+
+        resultTabs.forEach((tab) => {
+            tab.addEventListener("click", () => {
+                resultTabs.forEach((t) => {
+                    t.classList.remove("active");
+                    t.setAttribute("aria-selected", "false");
+                });
+                resultPanels.forEach((p) => p.classList.remove("active"));
+
+                tab.classList.add("active");
+                tab.setAttribute("aria-selected", "true");
+                document.getElementById(tab.dataset.target).classList.add("active");
+            });
+        });
+    </script>
+<script>
+        const sortOrder = document.getElementById("sortOrder");
+        const resultList = document.getElementById("resultList");
+
+        sortOrder.addEventListener("change", () => {
+            const results = [...resultList.querySelectorAll(".result")];
+            const key = sortOrder.value;
+
+            results.sort((a, b) => {
+                const valueA = Number(a.dataset[key]);
+                const valueB = Number(b.dataset[key]);
+
+                return key === "distance"
+                    ? valueA - valueB
+                    : valueB - valueA;
+            });
+
+            results.forEach((result) => resultList.appendChild(result));
+        });
+    </script>
+<script>
+        const recipeSortOrder = document.getElementById("recipeSortOrder");
+        const recipeList = document.getElementById("recipeList");
+
+        recipeSortOrder.addEventListener("change", () => {
+            const recipes = [...recipeList.querySelectorAll(".recipe-item")];
+            const key = recipeSortOrder.value;
+
+            recipes.sort((a, b) => {
+                const valueA = key === "date" ? Date.parse(a.dataset.date) : Number(a.dataset.rating);
+                const valueB = key === "date" ? Date.parse(b.dataset.date) : Number(b.dataset.rating);
+                return valueB - valueA;
+            });
+
+            recipes.forEach((recipe) => recipeList.appendChild(recipe));
+        });
+    </script>
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const sidebar = document.querySelector("#sidebar");
+            const toggle = document.querySelector(".sidebar-toggle");
+
+            if (!sidebar || !toggle) return;
+
+            const setOpen = (open) => {
+                sidebar.classList.toggle("is-open", open);
+                toggle.setAttribute("aria-expanded", open ? "true" : "false");
+                toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+            };
+
+            toggle.addEventListener("click", () => {
+                setOpen(!sidebar.classList.contains("is-open"));
+            });
+
+            sidebar.querySelectorAll("a").forEach((link) => {
+                link.addEventListener("click", () => setOpen(false));
+            });
+
+            document.addEventListener("click", (event) => {
+                if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+                if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                    setOpen(false);
+                }
+            });
+        });
+    </script>
+<script src="{{ url_for('static', filename='js/roulette.js') }}" defer></script>
+{% endblock %}

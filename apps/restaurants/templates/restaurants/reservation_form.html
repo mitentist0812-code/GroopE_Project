@@ -1,0 +1,129 @@
+{% extends "shared/base.html" %}
+
+{% block title %}店舗予約 - 一飯一会{% endblock %}
+{% block body_class %}page-detail page-reservation-form{% endblock %}
+{% block active_nav %}top{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('restaurants.restaurant_detail') }}" class="back-link">← 店舗詳細に戻る</a>
+    <section class="reservation-form-panel" aria-labelledby="reservation-title">
+      <h2 id="reservation-title">店舗予約</h2>
+      <p class="reservation-shop-name">予約する店舗：<strong>元気ラーメン</strong></p>
+      <p class="reservation-form-note">人数・お名前（カタカナ）・予約日時を入力してください。</p>
+
+      <form id="store-reservation-form" class="store-reservation-form">
+        <div class="reservation-form-field">
+          <label for="reservation-guests">人数</label>
+          <input type="number" id="reservation-guests" name="guests" min="1" max="20" step="1" placeholder="例：2" required>
+        </div>
+
+        <div class="reservation-form-field">
+          <label for="reservation-name">お名前（カタカナ）</label>
+          <input type="text" id="reservation-name" name="name" maxlength="100" autocomplete="name" placeholder="例：ヤマダ タロウ" aria-describedby="reservation-name-error" required>
+          <p id="reservation-name-error" class="reservation-field-error" role="alert" hidden></p>
+        </div>
+
+        <div class="reservation-form-field">
+          <label for="reservation-datetime">予約日時</label>
+          <input type="datetime-local" id="reservation-datetime" name="datetime" required>
+        </div>
+
+        <button type="submit" class="reservation-submit-button">予約内容を確認</button>
+      </form>
+
+      <p id="reservation-form-status" class="reservation-form-status" role="status" aria-live="polite"></p>
+      <p class="reservation-form-disclaimer">この画面は試作です。入力内容は送信・保存されず、予約は確定しません。</p>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.querySelector("#store-reservation-form");
+      const nameInput = document.querySelector("#reservation-name");
+      const nameError = document.querySelector("#reservation-name-error");
+      const dateTimeInput = document.querySelector("#reservation-datetime");
+      const status = document.querySelector("#reservation-form-status");
+      let nameValidationShown = false;
+
+      const updateNameError = () => {
+        const name = nameInput.value.trim();
+        const isKatakana = /^[\u30A0-\u30FF\u31F0-\u31FF\u3000\s]+$/u.test(name);
+        const message = !name
+          ? "お名前を入力してください。"
+          : !isKatakana
+            ? "お名前はカタカナで入力してください。"
+            : "";
+
+        nameError.textContent = message;
+        nameError.hidden = !message;
+        nameInput.setAttribute("aria-invalid", message ? "true" : "false");
+        return !message;
+      };
+
+      const localDateTimeValue = (date) => {
+        const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return localDate.toISOString().slice(0, 16);
+      };
+
+      dateTimeInput.min = localDateTimeValue(new Date());
+
+      nameInput.addEventListener("input", () => {
+        if (nameValidationShown) updateNameError();
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        nameValidationShown = true;
+        if (!updateNameError()) {
+          status.textContent = "";
+          nameInput.focus();
+          return;
+        }
+        if (!form.reportValidity()) return;
+
+        const guests = Number(form.elements.guests.value);
+        if (!Number.isSafeInteger(guests) || guests < 1 || guests > 20) {
+          status.textContent = "人数は1～20名で入力してください。";
+          return;
+        }
+
+        const name = form.elements.name.value.trim();
+        const date = new Date(dateTimeInput.value);
+        if (Number.isNaN(date.getTime()) || date < new Date()) {
+          status.textContent = "現在以降の予約日時を入力してください。";
+          return;
+        }
+
+        const formattedDate = new Intl.DateTimeFormat("ja-JP", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(date);
+        status.textContent = `入力内容：${name}様、${guests}名、${formattedDate}。試作画面のため予約は送信されていません。`;
+      });
+
+      const sidebar = document.querySelector("#sidebar");
+      const toggle = document.querySelector(".sidebar-toggle");
+      if (!sidebar || !toggle) return;
+
+      const setOpen = (open) => {
+        sidebar.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+      };
+      toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+      sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+      document.addEventListener("click", (event) => {
+        if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+        if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+      });
+    });
+  </script>
+{% endblock %}

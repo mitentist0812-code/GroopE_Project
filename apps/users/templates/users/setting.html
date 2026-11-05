@@ -1,0 +1,175 @@
+{% extends "shared/base.html" %}
+
+{% block title %}設定 - 一飯一会{% endblock %}
+{% block body_class %}page-setting{% endblock %}
+{% block active_nav %}mypage{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<h2>設定</h2>
+		<div class="settings-list">
+			<section class="settings-section" aria-labelledby="account-settings">
+				<h3 id="account-settings">アカウント設定</h3>
+				<div class="setting-row">
+					<div><span class="setting-label">ユーザー名</span><p class="setting-description">画面に表示する名前</p></div>
+					<input class="setting-control" type="text" value="ごはん好き" aria-label="ユーザー名">
+				</div>
+				<div class="setting-row">
+					<div><span class="setting-label">メールアドレス</span><p class="setting-description">アカウントに登録するメールアドレスを変更します</p></div>
+					<input class="setting-control" type="email" id="account-email" name="email" placeholder="example@example.com" autocomplete="email" aria-label="新しいメールアドレス">
+				</div>
+			</section>
+
+			<section class="settings-section" aria-labelledby="search-settings">
+				<h3 id="search-settings">検索設定</h3>
+				<div class="setting-row">
+					<div><span class="setting-label">現在地の利用</span><p class="setting-description">近くのお店を検索するときに現在地を利用します</p></div>
+					<label class="toggle"><input type="checkbox" checked> 利用する</label>
+				</div>
+				<div class="setting-row">
+					<div><span class="setting-label">健康管理モード</span><p class="setting-description">カロリーや栄養バランスを意識したお店を優先して表示します</p></div>
+					<label class="toggle"><input type="checkbox" aria-label="健康管理モード"> 有効にする</label>
+				</div>
+			</section>
+
+			<section class="settings-section" aria-labelledby="food-settings">
+				<h3 id="food-settings">食事・アレルギー設定</h3>
+
+				<div class="setting-row">
+					<div>
+						<span class="setting-label">好きな食べ物</span>
+						<p class="setting-description">好きな食べ物を入力してください</p>
+					</div>
+					<input class="setting-control" type="text" placeholder="例：カレー、寿司" aria-label="好きな食べ物">
+				</div>
+
+				<div class="setting-row">
+					<div>
+						<span class="setting-label">苦手な食べ物</span>
+						<p class="setting-description">苦手な食べ物を入力してください</p>
+					</div>
+					<input class="setting-control" type="text" placeholder="例：納豆、ピーマン" aria-label="苦手な食べ物">
+				</div>
+
+				<div class="setting-row">
+					<div>
+						<span class="setting-label">アレルギー</span>
+						<p class="setting-description">
+							該当する食品をタップしてください
+						</p>
+					</div>
+
+					<div class="food-area">
+						<p class="food-note">⚠ 安全のため、忘れずに選択してください</p>
+
+						<div class="food-checkboxes">
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="卵">🥚 卵
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="乳">🥛 乳
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="小麦">🌾 小麦
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="そば">🍜 そば
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="落花生">🥜 落花生
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="エビ">🦐 エビ
+							</label>
+							<label class="food-checkbox">
+								<input type="checkbox" name="allergy" value="カニ">🦀 カニ
+							</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div>
+						<span class="setting-label">宗教</span>
+						<p class="setting-description">食事に関する宗教上の制限があれば選択してください</p>
+					</div>
+					<select class="setting-control" aria-label="宗教">
+                        <option value="">選択してください</option>
+                        <option value="特になし">特になし</option>
+                        <option value="イスラム教">イスラム教</option>
+                        <option value="キリスト教">キリスト教</option>
+                        <option value="ユダヤ教">ユダヤ教</option>
+                        <option value="仏教">仏教</option>
+                        <option value="ヒンドゥー教">ヒンドゥー教</option>
+                        <option value="その他">その他</option>
+                    </select>
+				</div>
+			</section>
+		</div>
+
+		<div class="actions">
+			<button type="button" class="button button-secondary">キャンセル</button>
+			<button type="button" class="button button-primary" id="saveButton">
+				変更を保存
+			</button>
+		</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const emailInput = document.getElementById("account-email");
+        try {
+            emailInput.value = localStorage.getItem("accountEmail") || "";
+        } catch (error) {
+            console.error("登録済みメールアドレスを読み込めませんでした。", error);
+        }
+
+        document.getElementById("saveButton").addEventListener("click", () => {
+            const email = emailInput.value.trim();
+            emailInput.value = email;
+            if (email && !emailInput.checkValidity()) {
+                emailInput.reportValidity();
+                return;
+            }
+
+            try {
+                if (email) localStorage.setItem("accountEmail", email);
+                alert(email ? "メールアドレスを変更しました。" : "設定を保存しました。");
+            } catch (error) {
+                console.error("メールアドレスを保存できませんでした。", error);
+                alert("メールアドレスを保存できませんでした。もう一度お試しください。");
+            }
+        });
+    </script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const sidebar = document.querySelector("#sidebar");
+        const toggle = document.querySelector(".sidebar-toggle");
+
+        if (!sidebar || !toggle) return;
+
+        const setOpen = (open) => {
+            sidebar.classList.toggle("is-open", open);
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+        };
+
+        toggle.addEventListener("click", () => {
+            setOpen(!sidebar.classList.contains("is-open"));
+        });
+
+        sidebar.querySelectorAll("a").forEach((link) => {
+            link.addEventListener("click", () => setOpen(false));
+        });
+
+        document.addEventListener("click", (event) => {
+            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                setOpen(false);
+            }
+        });
+    });
+</script>
+{% endblock %}

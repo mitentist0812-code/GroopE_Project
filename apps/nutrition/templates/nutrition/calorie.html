@@ -1,0 +1,112 @@
+{% extends "shared/base.html" %}
+
+{% block title %}写真でカロリー計算 - 一飯一会{% endblock %}
+{% block body_class %}page-calorie{% endblock %}
+{% block active_nav %}calorie{% endblock %}
+
+{% block content %}
+    <h2>写真でカロリー計算</h2>
+    <p class="page-intro">料理の写真を選ぶと、写真からカロリーを推定します。</p>
+
+    <div class="calorie-layout">
+      <section class="calorie-upload-card" aria-labelledby="upload-title">
+        <h3 id="upload-title">料理の写真を選択</h3>
+        <p class="calorie-hint">料理全体が写った、明るく見やすい写真がおすすめです。</p>
+
+        <label class="photo-picker" for="meal-photo">
+          <span class="photo-picker-icon" aria-hidden="true">＋</span>
+          <span>写真を撮る・選ぶ</span>
+          <small>JPG、PNG、HEICなど（10MBまで）</small>
+          <input type="file" id="meal-photo" accept="image/*" capture="environment">
+        </label>
+        <p id="photo-error" class="calorie-error" role="alert" hidden></p>
+
+        <div id="photo-preview" class="photo-preview" hidden>
+          <img id="preview-image" alt="選択した料理のプレビュー">
+          <p id="preview-name"></p>
+        </div>
+
+        <button type="button" id="estimate-button" class="estimate-button" disabled>
+          カロリーを推定する
+        </button>
+        <p class="privacy-note">選択した写真はこの画面でプレビューするだけで、送信されません。</p>
+      </section>
+
+      <section class="calorie-result-card" aria-labelledby="result-title">
+        <h3 id="result-title">推定結果</h3>
+        <div id="result-message" class="result-placeholder" role="status" aria-live="polite">
+          <span class="result-icon" aria-hidden="true">🍽️</span>
+          <p>写真を選択すると、ここに推定結果が表示されます。</p>
+        </div>
+        <div class="calorie-result-note">
+          <strong>ご利用にあたって</strong>
+          <p>写真からの数値は目安です。食材や量、調理方法によって実際のカロリーと異なる場合があります。</p>
+        </div>
+      </section>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const photoInput = document.querySelector("#meal-photo");
+      const preview = document.querySelector("#photo-preview");
+      const previewImage = document.querySelector("#preview-image");
+      const previewName = document.querySelector("#preview-name");
+      const errorMessage = document.querySelector("#photo-error");
+      const estimateButton = document.querySelector("#estimate-button");
+      const resultMessage = document.querySelector("#result-message");
+      let previewUrl = "";
+
+      photoInput.addEventListener("change", () => {
+        const file = photoInput.files[0];
+        errorMessage.hidden = true;
+        errorMessage.textContent = "";
+        estimateButton.disabled = true;
+        preview.hidden = true;
+        resultMessage.textContent = "写真を選択すると、ここに推定結果が表示されます。";
+
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          previewUrl = "";
+        }
+
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+          errorMessage.textContent = "画像ファイルを選択してください。";
+          errorMessage.hidden = false;
+          photoInput.value = "";
+          return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          errorMessage.textContent = "ファイルサイズは10MB以下にしてください。";
+          errorMessage.hidden = false;
+          photoInput.value = "";
+          return;
+        }
+
+        previewUrl = URL.createObjectURL(file);
+        previewImage.src = previewUrl;
+        previewName.textContent = file.name;
+        preview.hidden = false;
+        estimateButton.disabled = false;
+        resultMessage.innerHTML = '<span class="result-icon" aria-hidden="true">🔎</span><p>写真の準備ができました。「カロリーを推定する」を押してください。</p>';
+      });
+
+      previewImage.addEventListener("error", () => {
+        preview.hidden = true;
+        estimateButton.disabled = true;
+        errorMessage.textContent = "この画像はプレビューできません。別の画像を選択してください。";
+        errorMessage.hidden = false;
+        resultMessage.textContent = "別の画像を選択してください。";
+      });
+
+      estimateButton.addEventListener("click", () => {
+        resultMessage.textContent = "カロリー推定機能は準備中です。画像解析機能の接続後に結果を表示します。";
+      });
+
+    });
+  </script>
+{% endblock %}

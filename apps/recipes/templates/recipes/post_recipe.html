@@ -1,0 +1,198 @@
+{% extends "shared/base.html" %}
+
+{% block title %}レシピ投稿 - 一飯一会{% endblock %}
+{% block body_class %}page-post-recipe{% endblock %}
+{% block active_nav %}post_recipe{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<h2>レシピ投稿</h2>
+    <p class="page-intro">お気に入りのレシピをみんなに共有しましょう。</p>
+
+    <form action="" method="post" enctype="multipart/form-data">
+      <div class="field">
+        <label for="title">レシピ名 <span class="required">必須</span></label>
+        <input type="text" id="title" name="title" placeholder="例：野菜たっぷりカレー" required>
+      </div>
+
+      <div class="field">
+        <label for="dishimg">料理の写真</label>
+        <input type="file" id="dishimg" name="dishimg" accept="image/*">
+        <small>料理の仕上がりがわかる写真を選択してください。画像は1枚300KB以下にしてください。</small>
+      </div>
+
+      <fieldset class="ingredients-field">
+        <legend>材料 <span class="required">必須</span></legend>
+        <p class="ingredients-hint">材料名と分量を1つずつ入力してください。</p>
+        <div id="ingredient-list">
+          <div class="ingredient-row">
+            <div class="field">
+              <label for="ingredient-name-1">材料名</label>
+              <input type="text" id="ingredient-name-1" name="ingredient_name[]" placeholder="例：玉ねぎ" required>
+            </div>
+            <div class="field">
+              <label for="ingredient-amount-1">分量</label>
+              <input type="text" id="ingredient-amount-1" name="ingredient_amount[]" placeholder="例：1個" required>
+            </div>
+            <button type="button" class="remove-ingredient-button" aria-label="この材料を削除" hidden>削除</button>
+          </div>
+        </div>
+        <button type="button" id="add-ingredient-button" class="add-step-button">＋ 材料を追加</button>
+      </fieldset>
+
+      <fieldset class="step-field">
+        <legend>作り方</legend>
+        <div id="step-list">
+          <div class="step-item">
+            <div class="field">
+              <label for="process-text-1" class="step-label">工程1</label>
+              <textarea id="process-text-1" name="process[]" rows="3" placeholder="作り方を入力してください"></textarea>
+            </div>
+            <div class="field">
+              <label for="process-img-1">工程の写真</label>
+              <input type="file" id="process-img-1" name="process_img[]" accept="image/*">
+              <small>画像は1枚300KB以下にしてください。</small>
+            </div>
+            <button type="button" class="remove-step-button" hidden>この工程を削除</button>
+          </div>
+        </div>
+        <button type="button" id="add-step-button" class="add-step-button">＋ 工程を追加</button>
+      </fieldset>
+
+      <button type="submit" class="submit-button">レシピを投稿する</button>
+      <p id="recipe-post-message" class="recipe-post-message" role="status" hidden></p>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recipes.js') }}" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const ingredientList = document.querySelector("#ingredient-list");
+      const addIngredientButton = document.querySelector("#add-ingredient-button");
+      let ingredientNumber = 1;
+
+      const updateRemoveButtons = () => {
+        const rows = ingredientList.querySelectorAll(".ingredient-row");
+        rows.forEach((row) => {
+          row.querySelector(".remove-ingredient-button").hidden = rows.length === 1;
+        });
+      };
+
+      ingredientList.addEventListener("input", (event) => {
+        if (event.target.matches('input[name="ingredient_name[]"], input[name="ingredient_amount[]"]')) {
+          event.target.setCustomValidity("");
+        }
+      });
+
+      addIngredientButton.addEventListener("click", () => {
+        const inputs = ingredientList.querySelectorAll(
+          'input[name="ingredient_name[]"], input[name="ingredient_amount[]"]'
+        );
+        const emptyInput = Array.from(inputs).find((input) => input.value.trim() === "");
+
+        if (emptyInput) {
+          emptyInput.setCustomValidity("材料名と分量を入力してから材料を追加してください。");
+          emptyInput.reportValidity();
+          emptyInput.focus();
+          return;
+        }
+
+        ingredientNumber += 1;
+        const row = document.createElement("div");
+        row.className = "ingredient-row";
+        row.innerHTML = `
+          <div class="field">
+            <label for="ingredient-name-${ingredientNumber}">材料名</label>
+            <input type="text" id="ingredient-name-${ingredientNumber}" name="ingredient_name[]" placeholder="例：玉ねぎ" required>
+          </div>
+          <div class="field">
+            <label for="ingredient-amount-${ingredientNumber}">分量</label>
+            <input type="text" id="ingredient-amount-${ingredientNumber}" name="ingredient_amount[]" placeholder="例：1個" required>
+          </div>
+          <button type="button" class="remove-ingredient-button" aria-label="この材料を削除">削除</button>
+        `;
+        ingredientList.append(row);
+        updateRemoveButtons();
+        row.querySelector("input").focus();
+      });
+
+      ingredientList.addEventListener("click", (event) => {
+        const removeButton = event.target.closest(".remove-ingredient-button");
+        if (!removeButton) return;
+
+        removeButton.closest(".ingredient-row").remove();
+        updateRemoveButtons();
+      });
+
+      const stepList = document.querySelector("#step-list");
+      const addStepButton = document.querySelector("#add-step-button");
+      let stepNumber = 1;
+
+      const updateSteps = () => {
+        const items = stepList.querySelectorAll(".step-item");
+        items.forEach((item, index) => {
+          item.querySelector(".step-label").textContent = `工程${index + 1}`;
+          item.querySelector(".remove-step-button").hidden = items.length === 1;
+        });
+      };
+
+      addStepButton.addEventListener("click", () => {
+        stepNumber += 1;
+        const item = document.createElement("div");
+        item.className = "step-item";
+        item.innerHTML = `
+          <div class="field">
+            <label for="process-text-${stepNumber}" class="step-label"></label>
+            <textarea id="process-text-${stepNumber}" name="process[]" rows="3" placeholder="作り方を入力してください"></textarea>
+          </div>
+          <div class="field">
+            <label for="process-img-${stepNumber}">工程の写真</label>
+            <input type="file" id="process-img-${stepNumber}" name="process_img[]" accept="image/*">
+            <small>画像は1枚300KB以下にしてください。</small>
+          </div>
+          <button type="button" class="remove-step-button">この工程を削除</button>
+        `;
+        stepList.append(item);
+        updateSteps();
+        item.querySelector("textarea").focus();
+      });
+
+      stepList.addEventListener("click", (event) => {
+        const removeButton = event.target.closest(".remove-step-button");
+        if (!removeButton) return;
+
+        removeButton.closest(".step-item").remove();
+        updateSteps();
+      });
+
+      const sidebar = document.querySelector("#sidebar");
+      const toggle = document.querySelector(".sidebar-toggle");
+
+      if (!sidebar || !toggle) return;
+
+      const setOpen = (open) => {
+        sidebar.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+      };
+
+      toggle.addEventListener("click", () => {
+        setOpen(!sidebar.classList.contains("is-open"));
+      });
+
+      sidebar.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => setOpen(false));
+      });
+
+      document.addEventListener("click", (event) => {
+        if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+        if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+          setOpen(false);
+        }
+      });
+    });
+  </script>
+{% endblock %}

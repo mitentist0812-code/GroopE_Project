@@ -1,0 +1,291 @@
+{% extends "shared/base.html" %}
+
+{% block title %}レシピ詳細 - 一飯一会{% endblock %}
+{% block body_class %}page-recipe{% endblock %}
+{% block active_nav %}top{% endblock %}
+{% block account_actions %}
+<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('home.results') }}" class="back-link">← 検索結果に戻る</a>
+
+    <article class="recipe-detail">
+      <div class="recipe-hero-image">料理画像</div>
+      <h2>やみつき豚キムチ丼</h2>
+      <p class="recipe-author">投稿者：ユーザーA</p>
+      <button type="button" class="favorite-button" id="favoriteButton" aria-pressed="false">♡ お気に入り登録</button>
+
+      <section class="recipe-section">
+        <h3>材料</h3>
+        <ul class="recipe-ingredients">
+          <li><span>豚バラ肉</span><span>150g</span></li>
+          <li><span>キムチ</span><span>100g</span></li>
+          <li><span>卵</span><span>1個</span></li>
+          <li><span>ごはん</span><span>丼1杯</span></li>
+        </ul>
+      </section>
+
+      <section class="recipe-section">
+        <h3>作り方</h3>
+        <ol class="recipe-steps">
+          <li>
+            <p>豚バラ肉を食べやすい大きさに切る。</p>
+            <div class="recipe-step-image">工程画像</div>
+          </li>
+          <li>
+            <p>フライパンで豚バラ肉を炒め、色が変わったらキムチを加えてさらに炒める。</p>
+          </li>
+          <li>
+            <p>ごはんに盛り付け、目玉焼きをのせて完成。</p>
+            <div class="recipe-step-image">工程画像</div>
+          </li>
+        </ol>
+      </section>
+    </article>
+
+    <section class="review-section" aria-labelledby="review-title">
+      <div class="review-heading">
+        <h3 id="review-title">レビュー一覧</h3>
+        <label>
+          <select class="review-sort" id="reviewSort" aria-label="レビューの並び替え">
+            <option value="rating-desc">高評価順</option>
+            <option value="rating-asc">低評価順</option>
+            <option value="newest">新しい順</option>
+            <option value="oldest">古い順</option>
+          </select>
+        </label>
+      </div>
+
+      <ul class="review-list" id="reviewList">
+        <li class="review-item" data-rating="5" data-date="2026-09-29">
+          <div class="review-avatar">ご</div>
+          <div>
+            <div class="review-user">
+              <span class="review-name">ごはん好き</span>
+              <span class="review-date">2026年9月29日</span>
+            </div>
+            <span class="review-rating">★★★★★</span>
+            <p class="review-text">豚キムチのピリ辛と卵のまろやかさがよく合っていて、おいしかったです。</p>
+          </div>
+        </li>
+        <li class="review-item" data-rating="4" data-date="2026-09-22">
+          <div class="review-avatar">料</div>
+          <div>
+            <div class="review-user">
+              <span class="review-name">料理初心者</span>
+              <span class="review-date">2026年9月22日</span>
+            </div>
+            <span class="review-rating">★★★★☆</span>
+            <p class="review-text">手順が簡単で作りやすかったです。辛さを調整してまた作りたいです。</p>
+          </div>
+        </li>
+        <li class="review-item" data-rating="1" data-date="2026-09-30">
+          <div class="review-avatar">箸</div>
+          <div>
+            <div class="review-user">
+              <span class="review-name">箸の会議</span>
+              <span class="review-date">2026年9月30日</span>
+            </div>
+            <span class="review-rating">★☆☆☆☆</span>
+            <p class="review-text">炊飯器が月曜日を左折して、卵が昨日の靴下に相談していました。ごはんはたぶん窓の裏側です。</p>
+          </div>
+        </li>
+      </ul>
+
+      <button type="button" class="review-button" id="reviewButton">レビューをする</button>
+
+      <dialog class="review-dialog" id="reviewDialog">
+        <form id="reviewForm">
+          <h3>レビューをする</h3>
+          <label>評価</label>
+          <div class="rating-stars" id="ratingStars" aria-label="評価">
+            <button type="button" class="rating-star" data-rating="1" aria-label="1つ星">★</button>
+            <button type="button" class="rating-star" data-rating="2" aria-label="2つ星">★</button>
+            <button type="button" class="rating-star" data-rating="3" aria-label="3つ星">★</button>
+            <button type="button" class="rating-star" data-rating="4" aria-label="4つ星">★</button>
+            <button type="button" class="rating-star" data-rating="5" aria-label="5つ星">★</button>
+          </div>
+          <input type="hidden" id="reviewRating" name="rating">
+          <label for="reviewText">レビュー内容</label>
+          <textarea id="reviewText" required placeholder="レビューを入力してください"></textarea>
+          <p class="review-form-message" id="reviewFormMessage" aria-live="polite"></p>
+          <div class="dialog-actions">
+            <button type="button" class="button button-secondary" id="closeReview">キャンセル</button>
+            <button type="submit" class="review-button">投稿する</button>
+          </div>
+        </form>
+      </dialog>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const favoriteButton = document.querySelector("#favoriteButton");
+      const storageKey = "favoriteRecipes";
+      const recipeId = "recipe-1";
+
+      const loadFavorites = () => {
+        try {
+          return JSON.parse(localStorage.getItem(storageKey)) || [];
+        } catch {
+          return [];
+        }
+      };
+
+      const renderFavorite = (isFavorite) => {
+        favoriteButton.classList.toggle("active", isFavorite);
+        favoriteButton.setAttribute("aria-pressed", isFavorite ? "true" : "false");
+        favoriteButton.textContent = isFavorite ? "♥ お気に入り登録済み" : "♡ お気に入り登録";
+      };
+
+      renderFavorite(loadFavorites().includes(recipeId));
+
+      const historyKey = "viewedRecipes";
+      try {
+        const savedHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+        const history = Array.isArray(savedHistory)
+          ? savedHistory.filter((entry) => entry && entry.id === recipeId && typeof entry.viewedAt === "string")
+          : [];
+        history.unshift({ id: recipeId, viewedAt: new Date().toISOString() });
+        localStorage.setItem(historyKey, JSON.stringify(history.slice(0, 50)));
+      } catch (error) {
+        console.error("レシピ閲覧履歴を保存できませんでした。", error);
+      }
+
+      favoriteButton.addEventListener("click", () => {
+        const favorites = loadFavorites();
+        const isFavorite = !favorites.includes(recipeId);
+        const updated = isFavorite
+          ? [...favorites, recipeId]
+          : favorites.filter((id) => id !== recipeId);
+
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        renderFavorite(isFavorite);
+      });
+
+      const reviewButton = document.querySelector("#reviewButton");
+      const reviewDialog = document.querySelector("#reviewDialog");
+      const closeReview = document.querySelector("#closeReview");
+      const reviewForm = document.querySelector("#reviewForm");
+      const reviewList = document.querySelector("#reviewList");
+      const reviewSort = document.querySelector("#reviewSort");
+      const reviewRating = document.querySelector("#reviewRating");
+      const reviewText = document.querySelector("#reviewText");
+      const reviewFormMessage = document.querySelector("#reviewFormMessage");
+      const ratingStars = document.querySelectorAll(".rating-star");
+
+      reviewButton.addEventListener("click", () => {
+        reviewForm.reset();
+        reviewRating.value = "";
+        reviewFormMessage.textContent = "";
+        ratingStars.forEach((star) => star.classList.remove("active"));
+        reviewDialog.showModal();
+      });
+
+      closeReview.addEventListener("click", () => reviewDialog.close());
+
+      ratingStars.forEach((star) => {
+        star.addEventListener("click", () => {
+          const selectedRating = Number(star.dataset.rating);
+          reviewRating.value = String(selectedRating);
+          ratingStars.forEach((item) => {
+            item.classList.toggle("active", Number(item.dataset.rating) <= selectedRating);
+          });
+          reviewFormMessage.textContent = "";
+        });
+      });
+
+      reviewSort.addEventListener("change", () => {
+        const reviews = [...reviewList.querySelectorAll(".review-item")];
+        reviews.sort((a, b) => {
+          switch (reviewSort.value) {
+            case "rating-asc":
+              return Number(a.dataset.rating) - Number(b.dataset.rating);
+            case "newest":
+              return new Date(b.dataset.date) - new Date(a.dataset.date);
+            case "oldest":
+              return new Date(a.dataset.date) - new Date(b.dataset.date);
+            default:
+              return Number(b.dataset.rating) - Number(a.dataset.rating);
+          }
+        });
+        reviews.forEach((review) => reviewList.appendChild(review));
+      });
+
+      reviewForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!reviewRating.value) {
+          reviewFormMessage.textContent = "評価を選択してください。";
+          return;
+        }
+        const textValue = reviewText.value.trim();
+        if (!textValue) {
+          reviewFormMessage.textContent = "レビュー内容を入力してください。";
+          reviewText.focus();
+          return;
+        }
+
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const review = document.createElement("li");
+        const avatar = document.createElement("div");
+        const content = document.createElement("div");
+        const user = document.createElement("div");
+        const name = document.createElement("span");
+        const dateLabel = document.createElement("span");
+        const rating = Number(reviewRating.value);
+        const ratingLabel = document.createElement("span");
+        const text = document.createElement("p");
+
+        review.className = "review-item";
+        review.dataset.rating = String(rating);
+        review.dataset.date = date;
+        avatar.className = "review-avatar";
+        avatar.textContent = "ご";
+        user.className = "review-user";
+        name.className = "review-name";
+        name.textContent = "ごはん好き";
+        dateLabel.className = "review-date";
+        dateLabel.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+        ratingLabel.className = "review-rating";
+        ratingLabel.textContent = "★".repeat(rating) + "☆".repeat(5 - rating);
+        text.className = "review-text";
+        text.textContent = textValue;
+        user.append(name, dateLabel);
+        content.append(user, ratingLabel, text);
+        review.append(avatar, content);
+        reviewList.prepend(review);
+        reviewSort.value = "newest";
+        reviewDialog.close();
+      });
+
+      const sidebar = document.querySelector("#sidebar");
+      const toggle = document.querySelector(".sidebar-toggle");
+
+      if (!sidebar || !toggle) return;
+
+      const setOpen = (open) => {
+        sidebar.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+      };
+
+      toggle.addEventListener("click", () => {
+        setOpen(!sidebar.classList.contains("is-open"));
+      });
+
+      sidebar.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => setOpen(false));
+      });
+
+      document.addEventListener("click", (event) => {
+        if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+        if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+          setOpen(false);
+        }
+      });
+    });
+  </script>
+{% endblock %}

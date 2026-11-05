@@ -1,0 +1,247 @@
+{% extends "shared/base.html" %}
+
+{% block title %}ホーム - 一飯一会{% endblock %}
+{% block body_class %}page-top{% endblock %}
+{% block active_nav %}top{% endblock %}
+{% block account_actions %}
+<button type="button" class="mode-toggle" aria-label="飲食店モードに切り替え" aria-pressed="false">
+                飲食店へ
+            </button>
+            <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+{% endblock %}
+
+{% block content %}
+<nav class="home-actions" aria-label="便利なメニュー">
+            <a href="{{ url_for('users.favorite') }}" class="favorite-link">
+                <span class="home-action-icon" aria-hidden="true">♡</span>
+                <span>お気に入りを見る</span>
+            </a>
+            <a href="{{ url_for('recipes.post_recipe') }}" class="recipe-post-link">
+                <span class="home-action-icon" aria-hidden="true">＋</span>
+                <span>レシピを投稿する</span>
+            </a>
+        </nav>
+
+        <div class="search-shell">
+            <div class="search-tabs">
+                <button type="button" class="tab-button active" data-tab="recommend">
+                    <img src="{{ url_for('static', filename='img/feeling.png') }}" alt="" aria-hidden="true">
+                    気分検索
+                </button>
+                <button type="button" class="tab-button" data-tab="free">
+                    <img src="{{ url_for('static', filename='img/free.png') }}" alt="" aria-hidden="true">
+                    フリー検索
+                </button>
+            </div>
+
+            <form action="{{ url_for('home.results') }}" method="get" id="recommend" class="search-panel active">
+                <div class="form-grid">
+                    <div class="field-group featured-query-field">
+                        <label for="dishName">今の気分から探す</label>
+                        <input type="text" name="dishName" id="dishName" class="featured-query-input"
+                               placeholder="今日の気分を入力">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="budget">予算</label>
+                        <input type="number" name="budget" id="budget"
+                               min="0" placeholder="予算を入力">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="recommendGenre">料理のジャンル</label>
+                        <select name="genre" id="recommendGenre">
+                            <option value="">指定なし</option>
+                            <option value="和">和食</option>
+                            <option value="洋">洋食</option>
+                            <option value="中">中華</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <input type="submit" value="検索">
+            </form>
+
+            <form action="{{ url_for('home.results') }}" method="get" id="free" class="search-panel">
+                <div class="form-grid">
+                    <div class="field-group featured-query-field">
+                        <label for="freeKeyword">キーワードで自由に探す</label>
+                        <input type="text" name="keyword" id="freeKeyword" class="featured-query-input"
+                               placeholder="料理名や店舗名を自由に入力">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="freeBudget">予算</label>
+                        <input type="number" name="budget" id="freeBudget"
+                               min="0" placeholder="予算を入力">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="freeGenre">料理のジャンル</label>
+                        <select name="genre" id="freeGenre">
+                            <option value="">指定なし</option>
+                            <option value="和">和食</option>
+                            <option value="洋">洋食</option>
+                            <option value="中">中華</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <input type="submit" value="検索">
+            </form>
+        </div>
+
+        <section class="mood-section" aria-labelledby="mood-title">
+            <div class="nearby-header">
+                <h3 id="mood-title">気分から選ぶ</h3>
+            </div>
+            <div class="mood-list">
+                <button type="button" class="mood-card" data-mood="さっぱり">
+                    <span class="mood-card-title">さっぱり</span>
+                    <span class="mood-card-description">軽めの食事を楽しみたいときに</span>
+                </button>
+                <button type="button" class="mood-card" data-mood="がっつり">
+                    <span class="mood-card-title">がっつり</span>
+                    <span class="mood-card-description">ボリュームのある食事をしたいときに</span>
+                </button>
+                <button type="button" class="mood-card" data-mood="あっさり">
+                    <span class="mood-card-title">あっさり</span>
+                    <span class="mood-card-description">やさしい味わいを楽しみたいときに</span>
+                </button>
+                <button type="button" class="mood-card" data-mood="こってり">
+                    <span class="mood-card-title">こってり</span>
+                    <span class="mood-card-description">濃厚な味を楽しみたいときに</span>
+                </button>
+                <button type="button" class="mood-card" data-mood="辛いもの">
+                    <span class="mood-card-title">辛いもの</span>
+                    <span class="mood-card-description">刺激のある料理を食べたいときに</span>
+                </button>
+                <button type="button" class="mood-card" data-mood="ヘルシー">
+                    <span class="mood-card-title">ヘルシー</span>
+                    <span class="mood-card-description">野菜中心の食事を選びたいときに</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="nearby-section" aria-labelledby="nearby-title">
+            <div class="nearby-header">
+                <h3 id="nearby-title">近くの飲食店</h3>
+                <a href="{{ url_for('home.results') }}">もっと見る</a>
+            </div>
+
+            <div class="nearby-list">
+                <article class="nearby-card">
+                    <div class="thumb">店</div>
+                    <div class="info">
+                        <h4>元気ラーメン</h4>
+                        <p>⭐ 4.3　📍 450m</p>
+                        <p>醤油ラーメン・半チャーハン</p>
+                    </div>
+                </article>
+
+                <article class="nearby-card">
+                    <div class="thumb">店</div>
+                    <div class="info">
+                        <h4>スタミナ食堂</h4>
+                        <p>⭐ 4.1　📍 700m</p>
+                        <p>定食・炭火焼き</p>
+                    </div>
+                </article>
+
+                <article class="nearby-card">
+                    <div class="thumb">店</div>
+                    <div class="info">
+                        <h4>肉盛り亭</h4>
+                        <p>⭐ 4.5　📍 900m</p>
+                        <p>焼肉定食・サラダ</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="recommended-recipes" aria-labelledby="recommended-recipes-title">
+            <div class="nearby-header">
+                <h3 id="recommended-recipes-title">新着レシピ</h3>
+            </div>
+
+            <div class="recipe-cards">
+                <article class="recipe-card">
+                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="やみつき豚キムチ丼のレシピを見る">🍚</a>
+                    <div class="recipe-card-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">やみつき豚キムチ丼</a></h4>
+                        <p>豚バラ肉とキムチで作る、食べごたえ満点の一品。</p>
+                        <span>投稿者：ユーザーA</span>
+                    </div>
+                </article>
+
+                <article class="recipe-card">
+                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="ガッツリ唐揚げのレシピを見る">🍗</a>
+                    <div class="recipe-card-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">ガッツリ唐揚げ</a></h4>
+                        <p>外はカリッと、中はジューシーな定番おかず。</p>
+                        <span>投稿者：ユーザーB</span>
+                    </div>
+                </article>
+
+                <article class="recipe-card">
+                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="スタミナ肉野菜炒めのレシピを見る">🥘</a>
+                    <div class="recipe-card-info">
+                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">スタミナ肉野菜炒め</a></h4>
+                        <p>お肉と野菜をたっぷり使った、満足感のある炒め物。</p>
+                        <span>投稿者：ユーザーC</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+        const tabButtons = document.querySelectorAll(".tab-button");
+        const searchPanels = document.querySelectorAll(".search-panel");
+
+        tabButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const targetId = button.dataset.tab;
+
+                tabButtons.forEach((tab) => tab.classList.remove("active"));
+                searchPanels.forEach((panel) => panel.classList.remove("active"));
+
+                button.classList.add("active");
+                document.getElementById(targetId).classList.add("active");
+            });
+        });
+
+        document.querySelectorAll(".mood-card").forEach((button) => {
+            button.addEventListener("click", () => {
+                document.getElementById("dishName").value = button.dataset.mood;
+                tabButtons.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === "recommend"));
+                searchPanels.forEach((panel) => panel.classList.toggle("active", panel.id === "recommend"));
+                document.getElementById("dishName").focus();
+                document.querySelector(".search-shell").scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+        });
+    </script>
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const sidebar = document.querySelector("#sidebar");
+            const toggle = document.querySelector(".sidebar-toggle");
+            if (!sidebar || !toggle) return;
+
+            const setOpen = (open) => {
+                sidebar.classList.toggle("is-open", open);
+                toggle.setAttribute("aria-expanded", open ? "true" : "false");
+                toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+            };
+
+            toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+            sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+            document.addEventListener("click", (event) => {
+                if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+                if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+            });
+        });
+    </script>
+{% endblock %}
