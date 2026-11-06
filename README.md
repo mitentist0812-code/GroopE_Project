@@ -4,7 +4,9 @@
 
 ## アプリの起動
 
-プロジェクトの仮想環境を有効にして、次のコマンドでFlaskアプリを起動します。
+プロジェクトの仮想環境を準備した後、リポジトリ直下の`run.bat`をダブルクリックするとFlaskアプリを起動できます。バッチファイルはプロジェクト内の`venv`を使用し、`apps:create_app`からアプリを起動します。
+
+コマンドから起動する場合は、仮想環境を有効にして次を実行します。
 
 ```powershell
 flask --app apps:create_app run --debug
@@ -19,6 +21,7 @@ flask --app apps:create_app run --debug
 - `apps/restaurants`: 店舗、メニュー、予約
 - `apps/nutrition`: カロリー計算
 - `apps/templates/shared`: 共通レイアウト
+- `apps/static`: CSS（`css`）、画像（`img`）、JavaScript（`js`）
 
 # GitHubへのプッシュ手順
 
@@ -98,7 +101,9 @@ Pull Requestは、管理者または他のメンバーによる確認後に`main
 
 ## 8. 次回以降の作業
 
-作業を始めるたびに、最新の`main`を取得してから新しい作業用ブランチを作成します。ブランチ名は作業に合わせて変更してください。
+リポジトリ直下の`start-work-branch.bat`を実行すると、最新の`main`を取得して作業用ブランチを作成できます。`feature`（新機能）、`fix`（バグ修正）、`design`（デザイン変更）を選び、ブランチ名を入力してください。たとえば`feature`と`search`を選ぶと`feature/search`が作成されます。
+
+コマンドで行う場合は、次のように実行します。ブランチ名は作業内容に合わせて変更してください。
 
 ```powershell
 git switch main
