@@ -1,6 +1,6 @@
 {% extends "shared/base.html" %}
 
-{% block title %}店舗詳細 - 元気ラーメン{% endblock %}
+{% block title %}店舗詳細{% if place %} - {{ place.name }}{% elif not real_place %} - 元気ラーメン{% endif %}{% endblock %}
 {% block body_class %}page-detail{% endblock %}
 {% block active_nav %}top{% endblock %}
 {% block account_actions %}
@@ -8,6 +8,80 @@
 {% endblock %}
 
 {% block content %}
+{% if real_place %}
+<a href="{{ url_for('home.top') }}" class="back-link back-to-results">← 検索結果に戻る</a>
+{% if place_error %}
+<section class="detail-panel"><p role="alert">{{ place_error }}</p></section>
+{% else %}
+<section class="detail-panel" aria-labelledby="shop-title">
+    <div class="hero">
+        <div class="photo-container">
+            <div class="hero-image">
+                <img id="place-photo" src="{{ image_url or url_for('static', filename='img/NoImage.jpg') }}" alt="{{ place.name }}の店舗画像{% if not image_url %}（画像なし）{% endif %}"{% if image_url %} data-fallback="{{ url_for('static', filename='img/NoImage.jpg') }}"{% endif %}>
+            </div>
+            {% if image_url %}
+            <div id="photo-attribution">
+                {% for author in place.photo.authors %}
+                <p class="photo-author">
+                    {% if author.avatar %}<img src="{{ author.avatar }}" alt="" class="photo-author-avatar">{% endif %}
+                    写真：{% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener noreferrer">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}
+                </p>
+                {% endfor %}
+                {% if place.photo.source %}<a href="{{ place.photo.source }}" target="_blank" rel="noopener noreferrer">Google Mapsでこの写真を見る</a>{% endif %}
+            </div>
+            {% endif %}
+            <p id="photo-error" role="status"{% if not photo_error %} hidden{% endif %}>{{ photo_error or "店舗写真を表示できませんでした。" }}</p>
+        </div>
+        <div>
+            <div class="hero-heading">
+                <h2 id="shop-title">{{ place.name }}</h2>
+                <button type="button" class="button button-primary reservation-button" disabled>予約する（未対応）</button>
+            </div>
+            <button type="button" class="favorite-button" disabled>♡ お気に入り登録（未対応）</button>
+            <p class="rating">★ {{ place.rating if place.rating is not none else "情報なし" }}</p>
+            <p class="hero-description">店舗紹介は利用できません。</p>
+        </div>
+    </div>
+    <div class="info-grid">
+        <div class="info-item"><span class="info-label">住所</span><span class="info-value">{{ place.address or "情報なし" }}</span></div>
+        <div class="info-item"><span class="info-label">アクセス</span><span class="info-value">情報なし{% if place.url %}（<a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで確認</a>）{% endif %}</span></div>
+        <div class="info-item">
+            <span class="info-label">営業時間</span>
+            <span class="info-value">
+                {% for day in place.hours %}{{ day }}<br>{% else %}情報なし{% endfor %}
+            </span>
+        </div>
+        <div class="info-item"><span class="info-label">価格帯</span><span class="info-value">{{ place.price }}（目安）</span></div>
+        <div class="info-item"><span class="info-label">電話番号</span><span class="info-value">{{ place.phone or "情報なし" }}</span></div>
+    </div>
+    {% if place.website %}<p><a href="{{ place.website }}" target="_blank" rel="noopener noreferrer">店舗ウェブサイト</a></p>{% endif %}
+    {% if place.url %}<p><a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで見る</a></p>{% endif %}
+    {% for attribution in place.attributions %}
+    <p>情報提供：{% if attribution.url %}<a href="{{ attribution.url }}" target="_blank" rel="noopener noreferrer">{{ attribution.name }}</a>{% else %}{{ attribution.name }}{% endif %}</p>
+    {% endfor %}
+    <div class="google-maps-detail-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>
+</section>
+<section class="review-section" aria-labelledby="review-title">
+    <div class="review-heading">
+        <h3 id="review-title">レビュー一覧</h3>
+        <label>
+            <select class="review-sort" aria-label="レビューの並び替え（未対応）" disabled>
+                <option>高評価順</option>
+                <option>低評価順</option>
+                <option>新しい順</option>
+                <option>古い順</option>
+            </select>
+        </label>
+    </div>
+    <p>レビューの表示・投稿は未対応です。</p>
+    <button type="button" class="review-button" disabled>レビューをする（未対応）</button>
+</section>
+<div class="actions">
+    <a href="{{ url_for('home.top') }}" class="button button-secondary back-to-results">一覧に戻る</a>
+    <a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
+</div>
+{% endif %}
+{% else %}
 <a href="{{ url_for('home.results') }}" class="back-link">← 検索結果に戻る</a>
 		<section class="detail-panel" aria-labelledby="shop-title">
 			<div class="hero">
@@ -131,9 +205,26 @@
 			<a href="{{ url_for('home.results') }}" class="button button-secondary">一覧に戻る</a>
 			<a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
 		</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if real_place %}
+<script src="{{ url_for('static', filename='js/place-photo.js') }}" defer></script>
+<script>
+    if (document.referrer) {
+        const previous = new URL(document.referrer);
+        if (previous.origin === location.origin && previous.pathname === {{ url_for('home.results')|tojson }}) {
+            document.querySelectorAll(".back-to-results").forEach((link) => {
+                link.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    history.back();
+                });
+            });
+        }
+    }
+</script>
+{% else %}
 <script>
     const favoriteButton = document.getElementById("favoriteButton");
     const reviewButton = document.getElementById("reviewButton");
@@ -186,6 +277,7 @@
         reviews.forEach((review) => reviewList.appendChild(review));
     });
 </script>
+{% endif %}
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         const sidebar = document.querySelector("#sidebar");
