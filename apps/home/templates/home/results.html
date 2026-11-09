@@ -11,22 +11,49 @@
         <div class="conditions">
             <h3>検索条件</h3>
 
+            {% if mood %}
             <div class="condition-item">
                 <span class="condition-label">今の気分：</span>
-                テストで疲れた。ガッツリ食べたい。
+                {{ mood }}
             </div>
-
+            {% endif %}
+            {% if keyword %}
+            <div class="condition-item">
+                <span class="condition-label">キーワード：</span>
+                {{ keyword }}
+            </div>
+            {% endif %}
             <div class="condition-item">
                 <span class="condition-label">予算：</span>
-                1,500円
+                {{ budget + "円" if budget else "指定なし" }}
             </div>
 
             <div class="condition-item">
                 <span class="condition-label">料理ジャンル：</span>
-                なし
+                {{ genre if genre else "指定なし" }}
             </div>
         </div>
 
+        {% if recommendation or recommendation_error %}
+        <section class="conditions" aria-labelledby="ai-recommendation-title">
+            <h3 id="ai-recommendation-title">気分に合わせたAIの料理提案</h3>
+            {% if recommendation %}
+            <ul>
+                {% for dish in recommendation %}
+                <li><strong>{{ dish.name }}</strong>：{{ dish.reason }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p role="alert">{{ recommendation_error }}</p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if is_mood_search %}
+        <p>レシピ一覧は表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
+        {% else %}
+        <p>以下の店舗・レシピは表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
+        {% endif %}
         <div class="result-tabs" role="tablist">
             <button type="button" class="result-tab active" role="tab" aria-selected="true" aria-controls="shop-panel" data-target="shop-panel">店舗</button>
             <button type="button" class="result-tab" role="tab" aria-selected="false" aria-controls="recipe-list-panel" data-target="recipe-list-panel">レシピ</button>
@@ -44,6 +71,15 @@
             </select>
         </div>
 
+        {% if is_mood_search %}
+        {% if recommendation %}<p>現在地の周辺を優先して検索しています。距離は直線距離です。</p>{% endif %}
+        {% if budget %}
+        <p>予算は店舗の価格帯による大まかな絞り込みです。実際の料金を保証するものではありません。価格帯が未登録の店舗は表示されない場合があります。</p>
+        {% endif %}
+        {% if places_error %}<p role="alert">{{ places_error }}</p>{% endif %}
+        {% if recommendation and not places and not places_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
+        {% endif %}
+
         <!-- ルーレット起動ボタン -->
         <div class="roulette-bar">
             <button type="button" id="start-roulette">
@@ -52,6 +88,33 @@
         </div>
 
         <div id="resultList">
+            {% if is_mood_search %}
+            {% for place in places %}
+            <div class="result" data-distance="{{ place.distance if place.distance is not none else '' }}" data-rating="{{ place.rating if place.rating is not none else '' }}">
+                <div class="result-info">
+                    <h3>{{ place.name }}</h3>
+                    <p>{{ place.address }}</p>
+                    <p>評価：{{ place.rating if place.rating is not none else "情報なし" }}</p>
+                    <p>距離：{{ "約" ~ place.distance ~ "m" if place.distance is not none else "情報なし" }}</p>
+                    <p>価格帯：{{ place.price }}</p>
+                    {% for attribution in place.attributions %}
+                    <p>情報提供：{% if attribution.url %}<a href="{{ attribution.url }}" rel="noopener noreferrer" target="_blank">{{ attribution.name }}</a>{% else %}{{ attribution.name }}{% endif %}</p>
+                    {% endfor %}
+                    <label class="roulette-select">
+                        <input type="checkbox" class="roulette-shop" value="{{ place.id }}" data-name="{{ place.name }}">
+                        ルーレット候補にする
+                    </label>
+                    <a href="{{ url_for('restaurants.place_detail', place_id=place.id) }}" class="detail-button">店舗詳細</a>
+                    {% if place.url %}
+                    <a href="{{ place.url }}" class="detail-button" target="_blank" rel="noopener noreferrer">Google Mapsで見る</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% if places %}
+            <div class="google-maps-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>
+            {% endif %}
+            {% else %}
             <div class="result" data-distance="450" data-rating="4.3">
                 <span class="favorite-mark" aria-label="お気に入り">♥</span>
 
@@ -122,6 +185,7 @@
                 </div>
             </div>
 
+            {% endif %}
         </div>
         </div>
 
@@ -246,8 +310,8 @@
             const key = sortOrder.value;
 
             results.sort((a, b) => {
-                const valueA = Number(a.dataset[key]);
-                const valueB = Number(b.dataset[key]);
+                const valueA = a.dataset[key] === "" ? (key === "distance" ? Infinity : -Infinity) : Number(a.dataset[key]);
+                const valueB = b.dataset[key] === "" ? (key === "distance" ? Infinity : -Infinity) : Number(b.dataset[key]);
 
                 return key === "distance"
                     ? valueA - valueB

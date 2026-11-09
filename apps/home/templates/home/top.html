@@ -34,18 +34,20 @@
                 </button>
             </div>
 
-            <form action="{{ url_for('home.results') }}" method="get" id="recommend" class="search-panel active">
+            <form action="{{ url_for('home.results') }}" method="post" id="recommend" class="search-panel active">
+                <input type="hidden" name="latitude" id="search-latitude">
+                <input type="hidden" name="longitude" id="search-longitude">
                 <div class="form-grid">
                     <div class="field-group featured-query-field">
                         <label for="dishName">今の気分から探す</label>
                         <input type="text" name="dishName" id="dishName" class="featured-query-input"
-                               placeholder="今日の気分を入力">
+                               placeholder="今日の気分を入力" maxlength="200" required>
                     </div>
 
                     <div class="field-group">
                         <label for="budget">予算</label>
                         <input type="number" name="budget" id="budget"
-                               min="0" placeholder="予算を入力">
+                               min="0" max="999999999" step="1" placeholder="予算を入力">
                     </div>
 
                     <div class="field-group">
@@ -61,6 +63,9 @@
                 </div>
 
                 <input type="submit" value="検索">
+                <p>店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
+                <p id="location-status" role="status" aria-live="polite"></p>
+                <noscript><p>店舗検索にはJavaScriptと位置情報の許可が必要です。</p></noscript>
             </form>
 
             <form action="{{ url_for('home.results') }}" method="get" id="free" class="search-panel">
@@ -198,6 +203,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/mood-search.js') }}" defer></script>
 <script>
         const tabButtons = document.querySelectorAll(".tab-button");
         const searchPanels = document.querySelectorAll(".search-panel");

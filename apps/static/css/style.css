@@ -65,6 +65,11 @@ body.page-detail .hero {
 			display: grid; grid-template-columns: 280px 1fr; gap: 28px; align-items: center; padding: 28px; border-bottom: 1px solid var(--line);
 		}
 body.page-detail .hero-image { display: grid; height: 190px; place-items: center; color: var(--muted); background: #ebe7e1; border-radius: 4px; font-size: 14px; }
+body.page-detail .photo-container { min-width: 0; }
+body.page-detail .photo-container .hero-image { display: block; height: auto; overflow: hidden; }
+body.page-detail .hero-image img { display: block; width: 100%; height: auto; border-radius: 4px; }
+body.page-detail .photo-author { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+body.page-detail .photo-author-avatar { width: 24px; height: 24px; border-radius: 50%; }
 body.page-detail .hero h2 { margin: 0 0 12px; font-size: 26px; }
 body.page-detail .hero-heading {
 			display: flex;
@@ -803,6 +808,29 @@ body.page-kekka .conditions {
 body.page-kekka .conditions h3 {
             margin: 0 0 18px;
             font-size: 17px;
+        }
+body.page-kekka .google-maps-attribution {
+            padding: 10px 10px 5px;
+        }
+body.page-kekka .google-maps-attribution img {
+            display: block;
+            width: auto;
+            height: 18px;
+        }
+body.page-detail .google-maps-detail-attribution {
+            padding: 10px 10px 5px;
+        }
+body.page-detail .google-maps-detail-attribution img {
+            display: block;
+            width: auto;
+            height: 18px;
+        }
+body.page-detail .reservation-button:disabled,
+body.page-detail .favorite-button:disabled,
+body.page-detail .review-button:disabled,
+body.page-detail .review-sort:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 body.page-kekka .condition-item {
             display: flex;
