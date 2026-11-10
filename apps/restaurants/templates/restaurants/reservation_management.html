@@ -17,7 +17,7 @@
       <div class="restaurant-section-heading">
         <h3 id="reservation-list-title">予約一覧 <span id="reservation-count">0件</span></h3>
       </div>
-      <p class="restaurant-storage-note">現在は画面確認用のサンプル予約を表示しています。キャンセル操作はこの画面上のみで、予約データとの連携にはサーバー接続が必要です。</p>
+      <p class="restaurant-storage-note">予約内容はこのブラウザ内に仮保存されています。実際の予約データとの連携にはサーバー接続が必要です。</p>
       <p id="reservation-status" class="restaurant-status" role="status" aria-live="polite"></p>
       <ul id="reservation-list" class="reservation-list"></ul>
     </section>
@@ -69,6 +69,9 @@
           removeButton.setAttribute("aria-label", `${dateTime.textContent}の予約をキャンセル`);
 
           removeButton.addEventListener("click", () => {
+            if (!window.confirm(`${reservation.name}さんの予約をキャンセルしますか？`)) {
+              return;
+            }
             reservations.splice(index, 1);
             localStorage.setItem("reservations", JSON.stringify(reservations));
 
@@ -82,6 +85,8 @@
 
         if (reservations.length === 0) {
           status.textContent = "予約はありません。";
+        } else {
+          status.textContent = "";
         }
       };
 

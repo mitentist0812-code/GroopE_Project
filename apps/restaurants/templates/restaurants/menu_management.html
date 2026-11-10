@@ -99,6 +99,9 @@
           removeButton.textContent = "削除";
           removeButton.setAttribute("aria-label", `${menu.name}を削除`);
           removeButton.addEventListener("click", () => {
+            if (!window.confirm(`${menu.name}を削除しますか？`)) {
+              return;
+            }
             menus.splice(index, 1);
             updateMenuList();
             status.textContent = `${menu.name}を一覧から削除しました。`;
@@ -110,6 +113,8 @@
 
         if (menus.length === 0) {
           status.textContent = "まだメニューは登録されていません。";
+        } else {
+          status.textContent = "";
         }
       };
 
