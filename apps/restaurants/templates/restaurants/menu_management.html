@@ -58,7 +58,7 @@
       <div class="restaurant-section-heading">
         <h3 id="registered-menu-title">登録メニュー <span id="menu-count">0件</span></h3>
       </div>
-      <p class="restaurant-storage-note">この画面の登録内容はページを閉じると消えます。店舗データへの保存・公開にはサーバー連携が必要です。</p>
+      <p class="restaurant-storage-note">登録内容はこのブラウザ内に仮保存されます。実際の店舗データへの保存・公開にはサーバー連携が必要です。</p>
       <p id="menu-status" class="restaurant-status" role="status" aria-live="polite">まだメニューは登録されていません。</p>
       <ul id="menu-list" class="restaurant-menu-list"></ul>
     </section>
@@ -73,11 +73,12 @@
       const menuList = document.querySelector("#menu-list");
       const menuCount = document.querySelector("#menu-count");
       const status = document.querySelector("#menu-status");
-      const menus = [];
+      let menus = JSON.parse(localStorage.getItem("restaurantMenus") || "[]");
 
       const updateMenuList = () => {
         menuList.replaceChildren();
         menuCount.textContent = `${menus.length}件`;
+        localStorage.setItem("restaurantMenus", JSON.stringify(menus));
 
         menus.forEach((menu, index) => {
           const item = document.createElement("li");
@@ -293,6 +294,8 @@
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
       });
+
+      updateMenuList();
 
     });
   </script>
