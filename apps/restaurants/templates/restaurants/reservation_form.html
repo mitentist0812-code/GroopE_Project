@@ -35,7 +35,7 @@
       </form>
 
       <p id="reservation-form-status" class="reservation-form-status" role="status" aria-live="polite"></p>
-      <p class="reservation-form-disclaimer">この画面は試作です。入力内容は送信・保存されず、予約は確定しません。</p>
+      <p class="reservation-form-disclaimer">  この画面は試作です。予約内容はこのブラウザ内に仮保存されますが、実際の店舗への予約は確定しません。</p>
     </section>
 {% endblock %}
 
@@ -106,7 +106,17 @@
           hour: "2-digit",
           minute: "2-digit"
         }).format(date);
-        status.textContent = `入力内容：${name}様、${guests}名、${formattedDate}。試作画面のため予約は送信されていません。`;
+        
+        const reservation = {
+          name: name,
+          guests: guests,
+          datetime: dateTimeInput.value
+        };
+        
+        const reservations = JSON.parse(localStorage.getItem("reservations") || "[]");
+        reservations.push(reservation);
+        localStorage.setItem("reservations", JSON.stringify(reservations));
+        status.textContent = `予約内容を仮保存しました：${name}様、${guests}名、${formattedDate}`;
       });
 
       const sidebar = document.querySelector("#sidebar");

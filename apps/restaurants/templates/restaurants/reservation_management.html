@@ -9,7 +9,7 @@
 {% endblock %}
 {% block sidebar %}{% endblock %}
 {% block content %}
-<a href="{{ url_for('restaurants.menu_management') }}" class="back-link">← 店舗メニュー管理へ戻る</a>
+<a href="{{ url_for('restaurants.restaurant') }}" class="back-link">← 店舗管理に戻る</a>
     <h2>予約管理</h2>
     <p class="page-intro">店舗への予約内容を確認し、必要に応じてキャンセルできます。</p>
 
@@ -17,7 +17,7 @@
       <div class="restaurant-section-heading">
         <h3 id="reservation-list-title">予約一覧 <span id="reservation-count">0件</span></h3>
       </div>
-      <p class="restaurant-storage-note">現在は画面確認用のサンプル予約を表示しています。キャンセル操作はこの画面上のみで、予約データとの連携にはサーバー接続が必要です。</p>
+      <p class="restaurant-storage-note">予約内容はこのブラウザ内に仮保存されています。実際の予約データとの連携にはサーバー接続が必要です。</p>
       <p id="reservation-status" class="restaurant-status" role="status" aria-live="polite"></p>
       <ul id="reservation-list" class="reservation-list"></ul>
     </section>
@@ -29,16 +29,9 @@
       const list = document.querySelector("#reservation-list");
       const count = document.querySelector("#reservation-count");
       const status = document.querySelector("#reservation-status");
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(18, 0, 0, 0);
-      const followingDay = new Date(tomorrow);
-      followingDay.setDate(followingDay.getDate() + 1);
-      followingDay.setHours(12, 0, 0, 0);
-      const reservations = [
-        { date: tomorrow, guests: 2, email: "guest-a@example.com", phone: "000-0000-0000" },
-        { date: followingDay, guests: 4, email: "guest-b@example.com", phone: "" }
-      ];
+
+      // 予約フォームで仮保存したデータを取得
+      let reservations = JSON.parse(localStorage.getItem("reservations") || "[]");
 
       const renderReservations = () => {
         list.replaceChildren();
@@ -59,23 +52,29 @@
             weekday: "short",
             hour: "2-digit",
             minute: "2-digit"
-          }).format(reservation.date);
+          }).format(new Date(reservation.datetime));
 
           const guests = document.createElement("span");
           guests.textContent = `${reservation.guests}名`;
-          const email = document.createElement("span");
-          email.textContent = reservation.email;
-          const phone = document.createElement("span");
-          phone.textContent = reservation.phone ? `電話番号：${reservation.phone}` : "電話番号：未登録";
-          details.append(dateTime, guests, email, phone);
+
+          const name = document.createElement("span");
+          name.textContent = `予約者：${reservation.name}`;
+
+          details.append(dateTime, guests, name);
 
           const removeButton = document.createElement("button");
           removeButton.type = "button";
           removeButton.className = "restaurant-remove-button";
           removeButton.textContent = "予約をキャンセル";
           removeButton.setAttribute("aria-label", `${dateTime.textContent}の予約をキャンセル`);
+
           removeButton.addEventListener("click", () => {
+            if (!window.confirm(`${reservation.name}さんの予約をキャンセルしますか？`)) {
+              return;
+            }
             reservations.splice(index, 1);
+            localStorage.setItem("reservations", JSON.stringify(reservations));
+
             renderReservations();
             status.textContent = "予約をキャンセルしました。";
           });
@@ -86,10 +85,12 @@
 
         if (reservations.length === 0) {
           status.textContent = "予約はありません。";
+        } else {
+          status.textContent = "";
         }
       };
 
       renderReservations();
     });
-  </script>
+</script>
 {% endblock %}
