@@ -6,7 +6,7 @@
 {% block navigation_script %}{% endblock %}
 {% block logout_script %}{% endblock %}
 
-{% block page_layout %}
+{% block page_layout %}\
 <main class="signin-shell">
 		<header class="brand">
 			<div class="brand-mark" aria-hidden="true">食</div>
@@ -17,7 +17,14 @@
 		<section class="signin-panel" aria-labelledby="signin-title">
 			<h2 id="signin-title">新規登録</h2>
 
-			<form id="user-signin-form">
+
+			{% if error %}
+			<p class="error-message">{{ error }}</p>
+			{% endif %}
+
+			<form id="user-signin-form"
+			action="{{ url_for('auth.signup') }}"
+			method="post">
 				<div class="field">
 					<label for="user-name">ユーザー名<span class="required">必須</span></label>
 					<input type="text" id="user-name" name="user-name" placeholder="ユーザー名を入力" autocomplete="username" required>
@@ -55,13 +62,4 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-		document.querySelector("#user-signin-form").addEventListener("submit", (event) => {
-			event.preventDefault();
-			if (!window.confirm("アカウントを作成します。よろしいですか？")) return;
-
-			window.alert("アカウントを作成しました。");
-			window.location.href = "{{ url_for('auth.login') }}";
-		});
-	</script>
 {% endblock %}
