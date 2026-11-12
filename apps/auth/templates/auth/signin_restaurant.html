@@ -17,7 +17,15 @@
 		<section class="signin-panel" aria-labelledby="signin-title">
 			<h2 id="signin-title">店舗アカウント新規登録</h2>
 
-			<form id="restaurant-signin-form">
+
+			{% if error %}
+			<p class="error-message">{{ error }}</p>
+			{% endif %}
+
+			<form id="restaurant-signin-form"
+			action="{{ url_for('auth.signup_restaurant') }}"
+			method="post">
+
 				<div class="field">
 					<label for="restaurant-name">店舗名<span class="required">必須</span></label>
 					<input type="text" id="restaurant-name" name="restaurant_name" placeholder="例：一飯一会食堂" autocomplete="organization" maxlength="100" required>
@@ -64,29 +72,4 @@
 	</main>
 {% endblock %}
 
-{% block scripts %}
-<script>
-		const restaurantSigninForm = document.querySelector("#restaurant-signin-form");
-		const passwordInput = document.querySelector("#password");
-		const passwordConfirmInput = document.querySelector("#password-confirm");
-
-		const validatePasswordConfirmation = () => {
-			passwordConfirmInput.setCustomValidity(
-				passwordConfirmInput.value && passwordConfirmInput.value !== passwordInput.value
-					? "パスワードが一致しません。"
-					: ""
-			);
-		};
-
-		passwordInput.addEventListener("input", validatePasswordConfirmation);
-		passwordConfirmInput.addEventListener("input", validatePasswordConfirmation);
-
-		restaurantSigninForm.addEventListener("submit", (event) => {
-			event.preventDefault();
-			if (!window.confirm("店舗アカウントを作成します。よろしいですか？")) return;
-
-			window.alert("店舗アカウントを作成しました。");
-			window.location.href = "{{ url_for('auth.login') }}";
-		});
-	</script>
-{% endblock %}
+{% block scripts %}{% endblock %}
