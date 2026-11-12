@@ -126,7 +126,8 @@ class Search_history(db.Model):
 
     # レシピを閲覧した日時を保存するカラム
     # DateTime：日付と時刻を保存する型
-    # default=datetime.now：履歴を登録したときの日時を自動設定する
+    # default
+    # =datetime.now：履歴を登録したときの日時を自動設定する
     viewed_at = db.Column(
         db.DateTime,
         default=datetime.now
@@ -139,7 +140,6 @@ class Search_history(db.Model):
 # ユーザーがお気に入りに登録したレシピを管理するテーブル
 # お気に入り登録やお気に入り解除を行うときに使用する
 class Favorite(db.Model):
-
     # データベース上で使用するテーブル名を指定する
     __tablename__ = "favorite"
 
