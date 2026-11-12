@@ -64,22 +64,23 @@
 
                 <input type="submit" value="検索">
                 <p>店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
-                <p id="location-status" role="status" aria-live="polite"></p>
                 <noscript><p>店舗検索にはJavaScriptと位置情報の許可が必要です。</p></noscript>
             </form>
 
-            <form action="{{ url_for('home.results') }}" method="get" id="free" class="search-panel">
+            <form action="{{ url_for('home.results') }}" method="post" id="free" class="search-panel">
+                <input type="hidden" name="latitude">
+                <input type="hidden" name="longitude">
                 <div class="form-grid">
                     <div class="field-group featured-query-field">
                         <label for="freeKeyword">キーワードで自由に探す</label>
                         <input type="text" name="keyword" id="freeKeyword" class="featured-query-input"
-                               placeholder="料理名や店舗名を自由に入力">
+                               placeholder="料理名や店舗名を自由に入力" maxlength="200" required>
                     </div>
 
                     <div class="field-group">
                         <label for="freeBudget">予算</label>
                         <input type="number" name="budget" id="freeBudget"
-                               min="0" placeholder="予算を入力">
+                               min="0" max="999999999" step="1" placeholder="予算を入力">
                     </div>
 
                     <div class="field-group">
@@ -95,7 +96,18 @@
                 </div>
 
                 <input type="submit" value="検索">
+                <p>店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
+                <noscript><p>店舗検索にはJavaScriptと位置情報の許可が必要です。</p></noscript>
             </form>
+            <p class="search-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="search-loading" hidden aria-hidden="true">
+            <div class="search-loading-card">
+                <span class="search-spinner"></span>
+                <span>検索中</span>
+                <small>位置情報の利用を求められた場合は許可してください。</small>
+            </div>
         </div>
 
         <section class="mood-section" aria-labelledby="mood-title">
@@ -171,34 +183,7 @@
                 <h3 id="recommended-recipes-title">新着レシピ</h3>
             </div>
 
-            <div class="recipe-cards">
-                <article class="recipe-card">
-                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="やみつき豚キムチ丼のレシピを見る">🍚</a>
-                    <div class="recipe-card-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">やみつき豚キムチ丼</a></h4>
-                        <p>豚バラ肉とキムチで作る、食べごたえ満点の一品。</p>
-                        <span>投稿者：ユーザーA</span>
-                    </div>
-                </article>
-
-                <article class="recipe-card">
-                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="ガッツリ唐揚げのレシピを見る">🍗</a>
-                    <div class="recipe-card-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">ガッツリ唐揚げ</a></h4>
-                        <p>外はカリッと、中はジューシーな定番おかず。</p>
-                        <span>投稿者：ユーザーB</span>
-                    </div>
-                </article>
-
-                <article class="recipe-card">
-                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_detail') }}" aria-label="スタミナ肉野菜炒めのレシピを見る">🥘</a>
-                    <div class="recipe-card-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">スタミナ肉野菜炒め</a></h4>
-                        <p>お肉と野菜をたっぷり使った、満足感のある炒め物。</p>
-                        <span>投稿者：ユーザーC</span>
-                    </div>
-                </article>
-            </div>
+            <p class="empty-recipes">現在投稿されたレシピはありません。</p>
         </section>
 {% endblock %}
 

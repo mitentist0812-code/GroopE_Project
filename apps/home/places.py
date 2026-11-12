@@ -90,9 +90,9 @@ def places_request(url, fields=None, payload=None):
         raise PlacesAPIError(error.code, reasons) from None
 
 
-def search_places(dish, budget, latitude, longitude):
+def search_places(query, budget, latitude, longitude):
     payload = {
-        "textQuery": f"{dish} レストラン",
+        "textQuery": query,
         "languageCode": "ja",
         "regionCode": "JP",
         "pageSize": 10,
