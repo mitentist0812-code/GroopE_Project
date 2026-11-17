@@ -9,14 +9,15 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from models import db, User
+
 auth = Blueprint(
     "auth",
     __name__,
     template_folder="templates",
 )
 
-# DB導入までの仮データ保存領域
-users_data = {}
+# 店舗アカウントはDB対応するまで仮データで管理
 restaurants_data = {}
 
 
@@ -26,8 +27,8 @@ def login():
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
 
-        # 一般ユーザーを検索
-        user = users_data.get(email)
+        # 一般ユーザーをDBから検索
+        user = User.query.filter_by(email=email).first()
         account_type = "user"
 
         # 一般ユーザーに存在しなければ店舗アカウントを検索
@@ -35,12 +36,22 @@ def login():
             user = restaurants_data.get(email)
             account_type = "restaurant"
 
-        if user and check_password_hash(user["password"], password):
-            session.clear()
-            session["email"] = email
-            session["account_type"] = account_type
+        # パスワード照合
+        if user:
+            stored_password = (
+                user.password if account_type == "user"
+                else user["password"]
+            )
 
-            return redirect(url_for("home.top"))
+            if check_password_hash(stored_password, password):
+                session.clear()
+                session["email"] = email
+                session["account_type"] = account_type
+
+                if account_type == "user":
+                    session["user_id"] = user.user_id
+
+                return redirect(url_for("home.top"))
 
         return render_template(
             "auth/login.html",
@@ -76,16 +87,22 @@ def signup():
                 error="パスワードが一致しません。"
             )
 
-        if email in users_data or email in restaurants_data:
+        # DBと店舗データの両方でメールアドレスの重複を確認
+        if User.query.filter_by(email=email).first() or email in restaurants_data:
             return render_template(
                 "auth/signin.html",
                 error="このメールアドレスは既に登録されています。"
             )
 
-        users_data[email] = {
-            "name": name,
-            "password": generate_password_hash(password),
-        }
+        # DBにユーザーを登録
+        new_user = User(
+            user_name=name,
+            email=email,
+            password=generate_password_hash(password),
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
 
         return redirect(url_for("auth.login"))
 
@@ -120,7 +137,7 @@ def signup_restaurant():
                 error="パスワードが一致しません。"
             )
 
-        if email in users_data or email in restaurants_data:
+        if User.query.filter_by(email=email).first() or email in restaurants_data:
             return render_template(
                 "auth/signin_restaurant.html",
                 error="このメールアドレスは既に登録されています。"
