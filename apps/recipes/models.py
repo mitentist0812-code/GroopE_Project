@@ -237,3 +237,5 @@ class Review(db.Model):
         db.DateTime,
         default=datetime.now
     )
+
+    
