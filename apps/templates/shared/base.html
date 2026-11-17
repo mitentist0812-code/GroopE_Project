@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}一飯一会{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    {% block navigation_script %}
-        <script src="{{ url_for('static', filename='js/navigation-mode.js') }}" defer></script>
-    {% endblock %}
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}page-base{% endblock %}">
@@ -17,7 +14,18 @@
             <h1><a href="{{ url_for('home.top') }}">一飯一会</a></h1>
             <div class="account">
                 {% block account_actions %}
+                    {% if not session.get("email") %}
+                    <a href="{{ url_for('auth.login') }}" class="account-link">ログイン</a>
+                    <a href="{{ url_for('auth.signup') }}" class="account-link">新規登録</a>
+                    {% else %}
+                    <span class="account-name">{{ session.get("name", session.get("email")) }}</span>
+                    {% if session.get("account_type") == "restaurant" %}
+                    <a href="{{ url_for('restaurants.restaurant') }}" class="account-link">店舗管理</a>
                     <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+                    {% else %}
+                    <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
+                    {% endif %}
+                    {% endif %}
                 {% endblock %}
             </div>
         </header>
@@ -31,10 +39,15 @@
             <nav id="sidebar" aria-label="メインメニュー">
                 <ul class="sidebar-menu">
                     <li><a href="{{ url_for('home.top') }}" {% if active_nav == "top" %}id="current" aria-current="page"{% endif %}>ホーム</a></li>
-                    <li><a href="{{ url_for('nutrition.calorie') }}" {% if active_nav == "calorie" %}id="current" aria-current="page"{% endif %}>カロリー計算</a></li>
-                    <li><a href="{{ url_for('recipes.post_recipe') }}" {% if active_nav == "post_recipe" %}id="current" aria-current="page"{% endif %}>レシピ投稿</a></li>
-                    <li class="sidebar-mypage-item"><a href="{{ url_for('users.mypage') }}" {% if active_nav == "mypage" %}id="current" aria-current="page"{% endif %}>マイページ</a></li>
-                    <li class="sidebar-store-management-item" hidden><a href="{{ url_for('restaurants.restaurant') }}">店舗管理</a></li>
+                    <li><a {% if session.get("email") %}href="{{ url_for('nutrition.calorie') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %} {% if active_nav == "calorie" %}id="current" aria-current="page"{% endif %}>カロリー計算</a></li>
+                    <li><a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %} {% if active_nav == "post_recipe" %}id="current" aria-current="page"{% endif %}>レシピ投稿</a></li>
+                    {% if session.get("email") %}
+                        {% if session.get("account_type") == "restaurant" %}
+                    <li><a href="{{ url_for('restaurants.restaurant') }}" {% if active_nav == "restaurant" %}id="current" aria-current="page"{% endif %}>店舗管理</a></li>
+                        {% else %}
+                    <li><a href="{{ url_for('users.mypage') }}" {% if active_nav == "mypage" %}id="current" aria-current="page"{% endif %}>マイページ</a></li>
+                        {% endif %}
+                    {% endif %}
                 </ul>
             </nav>
         {% endblock %}

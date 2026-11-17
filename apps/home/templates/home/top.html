@@ -3,20 +3,15 @@
 {% block title %}ホーム - 一飯一会{% endblock %}
 {% block body_class %}page-top{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}
-<button type="button" class="mode-toggle" aria-label="飲食店モードに切り替え" aria-pressed="false">
-                飲食店へ
-            </button>
-            <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <nav class="home-actions" aria-label="便利なメニュー">
-            <a href="{{ url_for('users.favorite') }}" class="favorite-link">
+            <a {% if session.get("email") %}href="{{ url_for('users.favorite') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="favorite-link{% if not session.get('email') %} auth-disabled-control{% endif %}">
                 <span class="home-action-icon" aria-hidden="true">♡</span>
                 <span>お気に入りを見る</span>
             </a>
-            <a href="{{ url_for('recipes.post_recipe') }}" class="recipe-post-link">
+            <a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="recipe-post-link{% if not session.get('email') %} auth-disabled-control{% endif %}">
                 <span class="home-action-icon" aria-hidden="true">＋</span>
                 <span>レシピを投稿する</span>
             </a>
@@ -26,11 +21,11 @@
             <div class="search-tabs">
                 <button type="button" class="tab-button active" data-tab="recommend">
                     <img src="{{ url_for('static', filename='img/feeling.png') }}" alt="" aria-hidden="true">
-                    気分検索
+                    外で食べる
                 </button>
-                <button type="button" class="tab-button" data-tab="free">
+                <button type="button" class="tab-button" data-tab="home-recipes">
                     <img src="{{ url_for('static', filename='img/free.png') }}" alt="" aria-hidden="true">
-                    フリー検索
+                    家で食べる
                 </button>
             </div>
 
@@ -39,9 +34,9 @@
                 <input type="hidden" name="longitude" id="search-longitude">
                 <div class="form-grid">
                     <div class="field-group featured-query-field">
-                        <label for="dishName">今の気分から探す</label>
+                        <label for="dishName">気分やキーワードから探す</label>
                         <input type="text" name="dishName" id="dishName" class="featured-query-input"
-                               placeholder="今日の気分を入力" maxlength="200" required>
+                               placeholder="気分や料理名、店舗名を入力（例：さっぱり、ファミレス）" maxlength="200" required>
                     </div>
 
                     <div class="field-group">
@@ -63,41 +58,21 @@
                 </div>
 
                 <input type="submit" value="検索">
-                <p>店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
+                <p>入力文とAIの提案で店舗を検索します。店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
                 <noscript><p>店舗検索にはJavaScriptと位置情報の許可が必要です。</p></noscript>
             </form>
 
-            <form action="{{ url_for('home.results') }}" method="post" id="free" class="search-panel">
-                <input type="hidden" name="latitude">
-                <input type="hidden" name="longitude">
+            <form action="{{ url_for('home.recipe_results') }}" method="get" id="home-recipes" class="search-panel">
                 <div class="form-grid">
                     <div class="field-group featured-query-field">
-                        <label for="freeKeyword">キーワードで自由に探す</label>
-                        <input type="text" name="keyword" id="freeKeyword" class="featured-query-input"
-                               placeholder="料理名や店舗名を自由に入力" maxlength="200" required>
-                    </div>
-
-                    <div class="field-group">
-                        <label for="freeBudget">予算</label>
-                        <input type="number" name="budget" id="freeBudget"
-                               min="0" max="999999999" step="1" placeholder="予算を入力">
-                    </div>
-
-                    <div class="field-group">
-                        <label for="freeGenre">料理のジャンル</label>
-                        <select name="genre" id="freeGenre">
-                            <option value="">指定なし</option>
-                            <option value="和">和食</option>
-                            <option value="洋">洋食</option>
-                            <option value="中">中華</option>
-                            <option value="その他">その他</option>
-                        </select>
+                        <label for="recipeKeyword">レシピを探す</label>
+                        <input type="text" name="keyword" id="recipeKeyword" class="featured-query-input"
+                               placeholder="料理名や材料を入力" maxlength="200" required>
                     </div>
                 </div>
 
                 <input type="submit" value="検索">
-                <p>店舗検索には現在地の利用許可が必要です。取得した位置情報は店舗検索に使用します。</p>
-                <noscript><p>店舗検索にはJavaScriptと位置情報の許可が必要です。</p></noscript>
+                <p>保存済みレシピの名前・材料・作り方を検索します。位置情報は使用しません。</p>
             </form>
             <p class="search-status" role="status" aria-live="polite"></p>
         </div>

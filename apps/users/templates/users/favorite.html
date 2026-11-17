@@ -3,9 +3,7 @@
 {% block title %}お気に入り - 一飯一会{% endblock %}
 {% block body_class %}page-favorite{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <div class="favorite-heading">

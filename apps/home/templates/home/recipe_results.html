@@ -1,0 +1,55 @@
+{% extends "shared/base.html" %}
+
+{% block title %}レシピ検索結果 - 一飯一会{% endblock %}
+{% block body_class %}page-kekka{% endblock %}
+{% block active_nav %}top{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('home.top') }}" class="results-back-link">← ホームに戻る</a>
+<h2>レシピ検索結果</h2>
+<div class="conditions">
+    <h3>検索条件</h3>
+    <div class="condition-item"><span class="condition-label">キーワード：</span>{{ keyword }}</div>
+</div>
+{% if search_error %}
+<p role="alert">{{ search_error }}</p>
+{% elif recipes %}
+<ul class="recipe-list">
+    {% for recipe in recipes %}
+    <li class="recipe-item">
+        <article class="recipe-info">
+            <h4>{{ recipe.recipe_name }}</h4>
+            <h5>材料</h5>
+            <p class="recipe-text">{{ recipe.ingredients }}</p>
+            <h5>作り方</h5>
+            <p class="recipe-text">{{ recipe.description }}</p>
+        </article>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="empty-recipes">条件に合うレシピが見つかりませんでした。</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const sidebar = document.querySelector("#sidebar");
+        const toggle = document.querySelector(".sidebar-toggle");
+        if (!sidebar || !toggle) return;
+
+        const setOpen = (open) => {
+            sidebar.classList.toggle("is-open", open);
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+        };
+        toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+        sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+        document.addEventListener("click", (event) => {
+            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+        });
+    });
+</script>
+{% endblock %}

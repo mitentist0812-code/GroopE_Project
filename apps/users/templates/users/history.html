@@ -3,9 +3,7 @@
 {% block title %}閲覧履歴 - 一飯一会{% endblock %}
 {% block body_class %}page-history{% endblock %}
 {% block active_nav %}mypage{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <div class="history-page-heading">

@@ -7,6 +7,8 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 
+SEARCH_RADIUS_METERS = 10000
+
 PRICE_LABELS = {
     "PRICE_LEVEL_FREE": "無料",
     "PRICE_LEVEL_INEXPENSIVE": "安め",
@@ -65,7 +67,7 @@ def distance_meters(latitude, longitude, location):
     dlng = math.radians(lng - longitude)
     a = (math.sin(dlat / 2) ** 2 + math.cos(math.radians(latitude))
          * math.cos(math.radians(lat)) * math.sin(dlng / 2) ** 2)
-    return round(12742000 * math.asin(math.sqrt(min(1, max(0, a)))))
+    return 12742000 * math.asin(math.sqrt(min(1, max(0, a))))
 
 
 def places_request(url, fields=None, payload=None):
@@ -99,7 +101,7 @@ def search_places(query, budget, latitude, longitude):
         "locationBias": {
             "circle": {
                 "center": {"latitude": latitude, "longitude": longitude},
-                "radius": 5000.0,
+                "radius": float(SEARCH_RADIUS_METERS),
             }
         },
     }
@@ -113,7 +115,15 @@ def search_places(query, budget, latitude, longitude):
     )
     if not isinstance(data, dict) or not isinstance(data.get("places", []), list):
         raise ValueError("Places API returned an invalid response")
-    return [parse_place(item, latitude, longitude) for item in data.get("places", [])]
+    places = []
+    for item in data.get("places", []):
+        place = parse_place(item, latitude, longitude)
+        distance = place["distance"]
+        if distance is not None and distance <= SEARCH_RADIUS_METERS:
+            place["distance_exact"] = distance
+            place["distance"] = round(distance)
+            places.append(place)
+    return places
 
 
 def place_details(place_id):

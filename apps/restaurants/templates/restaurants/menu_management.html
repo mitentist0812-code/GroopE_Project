@@ -3,10 +3,7 @@
 {% block title %}店舗メニュー管理 - 一飯一会{% endblock %}
 {% block body_class %}page-restaurant{% endblock %}
 {% block active_nav %}{% endblock %}
-{% block navigation_script %}{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 {% block sidebar %}{% endblock %}
 {% block content %}
 <a href="{{ url_for('restaurants.restaurant') }}" class="back-link">← 店舗管理に戻る</a>
@@ -58,7 +55,7 @@
       <div class="restaurant-section-heading">
         <h3 id="registered-menu-title">登録メニュー <span id="menu-count">0件</span></h3>
       </div>
-      <p class="restaurant-storage-note">登録内容はこのブラウザ内に仮保存されます。実際の店舗データへの保存・公開にはサーバー連携が必要です。</p>
+      <p class="restaurant-storage-note">登録内容は店舗アカウントに紐づけてサーバーに保存されます。</p>
       <p id="menu-status" class="restaurant-status" role="status" aria-live="polite">まだメニューは登録されていません。</p>
       <ul id="menu-list" class="restaurant-menu-list"></ul>
     </section>
@@ -67,20 +64,40 @@
 {% block scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const menuItemsUrl = {{ url_for("restaurants.menu_items")|tojson }};
       const menuForm = document.querySelector("#menu-form");
       const csvForm = document.querySelector("#csv-form");
       const csvInput = document.querySelector("#menu-csv");
       const menuList = document.querySelector("#menu-list");
       const menuCount = document.querySelector("#menu-count");
       const status = document.querySelector("#menu-status");
-      let menus = JSON.parse(localStorage.getItem("restaurantMenus") || "[]");
+      let menus = [];
+
+      const requestMenus = async (url, options = {}) => {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...options.headers
+          }
+        });
+        let result;
+        try {
+          result = await response.json();
+        } catch {
+          throw new Error("サーバーからの応答を読み込めませんでした。");
+        }
+        if (!response.ok) {
+          throw new Error(result.error || "メニューを処理できませんでした。");
+        }
+        return result;
+      };
 
       const updateMenuList = () => {
         menuList.replaceChildren();
         menuCount.textContent = `${menus.length}件`;
-        localStorage.setItem("restaurantMenus", JSON.stringify(menus));
 
-        menus.forEach((menu, index) => {
+        menus.forEach((menu) => {
           const item = document.createElement("li");
           item.className = "restaurant-menu-item";
 
@@ -98,13 +115,20 @@
           removeButton.className = "restaurant-remove-button";
           removeButton.textContent = "削除";
           removeButton.setAttribute("aria-label", `${menu.name}を削除`);
-          removeButton.addEventListener("click", () => {
+          removeButton.addEventListener("click", async () => {
             if (!window.confirm(`${menu.name}を削除しますか？`)) {
               return;
             }
-            menus.splice(index, 1);
-            updateMenuList();
-            status.textContent = `${menu.name}を一覧から削除しました。`;
+            try {
+              await requestMenus(`${menuItemsUrl}/${menu.id}`, { method: "DELETE" });
+              menus = menus.filter((registeredMenu) => registeredMenu.id !== menu.id);
+              updateMenuList();
+              status.textContent = `${menu.name}を一覧から削除しました。`;
+            } catch (error) {
+              status.textContent = error instanceof Error
+                ? error.message
+                : "メニューを削除できませんでした。";
+            }
           });
 
           item.append(details, removeButton);
@@ -118,13 +142,17 @@
         }
       };
 
-      const addMenus = (newMenus, message) => {
-        menus.push(...newMenus);
+      const addMenus = async (newMenus, message) => {
+        const result = await requestMenus(menuItemsUrl, {
+          method: "POST",
+          body: JSON.stringify({ menus: newMenus })
+        });
+        menus.push(...result.menus);
         updateMenuList();
         status.textContent = message;
       };
 
-      menuForm.addEventListener("submit", (event) => {
+      menuForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (!menuForm.reportValidity()) return;
 
@@ -151,8 +179,14 @@
           return;
         }
 
-        addMenus([menu], `${menu.name}をメニューに追加しました。`);
-        menuForm.reset();
+        try {
+          await addMenus([menu], `${menu.name}をメニューに追加しました。`);
+          menuForm.reset();
+        } catch (error) {
+          status.textContent = error instanceof Error
+            ? error.message
+            : "メニューを追加できませんでした。";
+        }
       });
 
       menuForm.addEventListener("input", (event) => {
@@ -286,8 +320,14 @@
           return;
         }
 
-        addMenus(importedMenus, `${importedMenus.length}件のメニューをCSVから追加しました。`);
-        csvForm.reset();
+        try {
+          await addMenus(importedMenus, `${importedMenus.length}件のメニューをCSVから追加しました。`);
+          csvForm.reset();
+        } catch (error) {
+          status.textContent = error instanceof Error
+            ? error.message
+            : "CSVメニューを追加できませんでした。";
+        }
       });
 
       document.querySelector("#download-template").addEventListener("click", () => {
@@ -300,7 +340,16 @@
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
       });
 
-      updateMenuList();
+      requestMenus(menuItemsUrl)
+        .then((result) => {
+          menus = result.menus;
+          updateMenuList();
+        })
+        .catch((error) => {
+          status.textContent = error instanceof Error
+            ? error.message
+            : "メニューを取得できませんでした。";
+        });
 
     });
   </script>

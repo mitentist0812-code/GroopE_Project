@@ -3,9 +3,7 @@
 {% block title %}レシピ投稿 - 一飯一会{% endblock %}
 {% block body_class %}page-post-recipe{% endblock %}
 {% block active_nav %}post_recipe{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <h2>レシピ投稿</h2>
@@ -61,7 +59,8 @@
         <button type="button" id="add-step-button" class="add-step-button">＋ 工程を追加</button>
       </fieldset>
 
-      <button type="submit" class="submit-button">レシピを投稿する</button>
+      <button type="submit" class="submit-button" {% if not session.get("email") %}disabled{% endif %}>レシピを投稿する</button>
+      {% if not session.get("email") %}<p class="auth-required-note">レシピを投稿するにはログインしてください。</p>{% endif %}
       <p id="recipe-post-message" class="recipe-post-message" role="status" hidden></p>
     </form>
 {% endblock %}

@@ -3,9 +3,7 @@
 {% block title %}レシピ詳細 - 一飯一会{% endblock %}
 {% block body_class %}page-recipe{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <a href="{{ url_for('home.results') }}" class="back-link">← 検索結果に戻る</a>
@@ -14,7 +12,7 @@
       <div class="recipe-hero-image">料理画像</div>
       <h2>やみつき豚キムチ丼</h2>
       <p class="recipe-author">投稿者：ユーザーA</p>
-      <button type="button" class="favorite-button" id="favoriteButton" aria-pressed="false">♡ お気に入り登録</button>
+      <button type="button" class="favorite-button" id="favoriteButton" aria-pressed="false" {% if not session.get("email") %}disabled{% endif %}>♡ お気に入り登録</button>
 
       <section class="recipe-section">
         <h3>材料</h3>
@@ -93,18 +91,18 @@
         </li>
       </ul>
 
-      <button type="button" class="review-button" id="reviewButton">レビューをする</button>
+      <button type="button" class="review-button" id="reviewButton" {% if not session.get("email") %}disabled{% endif %}>レビューをする</button>
 
       <dialog class="review-dialog" id="reviewDialog">
         <form id="reviewForm">
           <h3>レビューをする</h3>
           <label>評価</label>
           <div class="rating-stars" id="ratingStars" aria-label="評価">
-            <button type="button" class="rating-star" data-rating="1" aria-label="1つ星">★</button>
-            <button type="button" class="rating-star" data-rating="2" aria-label="2つ星">★</button>
-            <button type="button" class="rating-star" data-rating="3" aria-label="3つ星">★</button>
-            <button type="button" class="rating-star" data-rating="4" aria-label="4つ星">★</button>
-            <button type="button" class="rating-star" data-rating="5" aria-label="5つ星">★</button>
+            <button type="button" class="rating-star" data-rating="1" aria-label="1つ星" {% if not session.get("email") %}disabled{% endif %}>★</button>
+            <button type="button" class="rating-star" data-rating="2" aria-label="2つ星" {% if not session.get("email") %}disabled{% endif %}>★</button>
+            <button type="button" class="rating-star" data-rating="3" aria-label="3つ星" {% if not session.get("email") %}disabled{% endif %}>★</button>
+            <button type="button" class="rating-star" data-rating="4" aria-label="4つ星" {% if not session.get("email") %}disabled{% endif %}>★</button>
+            <button type="button" class="rating-star" data-rating="5" aria-label="5つ星" {% if not session.get("email") %}disabled{% endif %}>★</button>
           </div>
           <input type="hidden" id="reviewRating" name="rating">
           <label for="reviewText">レビュー内容</label>
@@ -112,7 +110,7 @@
           <p class="review-form-message" id="reviewFormMessage" aria-live="polite"></p>
           <div class="dialog-actions">
             <button type="button" class="button button-secondary" id="closeReview">キャンセル</button>
-            <button type="submit" class="review-button">投稿する</button>
+            <button type="submit" class="review-button" {% if not session.get("email") %}disabled{% endif %}>投稿する</button>
           </div>
         </form>
       </dialog>

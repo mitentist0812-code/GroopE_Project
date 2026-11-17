@@ -20,7 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let isSpinning = false;
 
   function getSelectedShops() {
-    return Array.from(document.querySelectorAll(".roulette-shop:checked")).map((checkbox) => ({
+    return Array.from(document.querySelectorAll(".roulette-shop:checked"))
+      .filter((checkbox) => !checkbox.closest(".result").hidden)
+      .map((checkbox) => ({
       id: checkbox.value,
       name: checkbox.dataset.name || checkbox.value
     }));
@@ -162,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".roulette-shop").forEach((checkbox) => {
     checkbox.addEventListener("change", updateSelectedCount);
   });
+  document.addEventListener("results-filtered", updateSelectedCount);
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
   });

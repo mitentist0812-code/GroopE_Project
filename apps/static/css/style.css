@@ -29,6 +29,39 @@
     }
 }
 
+.auth-disabled-control {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+#header .account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#header .account .account-name {
+    max-width: 16em;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: bold;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#header .account .account-link {
+    color: var(--accent-dark, #b94728);
+    font-size: 14px;
+    font-weight: bold;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+#header .account .account-link:hover {
+    text-decoration: underline;
+}
+
 /* restaurant_detail.html */
 body.page-detail {
 			color-scheme: light;
@@ -809,6 +842,56 @@ body.page-kekka .conditions h3 {
             margin: 0 0 18px;
             font-size: 17px;
         }
+body.page-kekka .ai-recommendation {
+            margin-bottom: 24px;
+        }
+body.page-kekka .ai-recommendation summary {
+            display: inline-flex;
+            align-items: center;
+            min-height: 44px;
+            padding: 0 18px;
+            color: var(--accent-dark);
+            background: var(--surface);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            list-style: none;
+        }
+body.page-kekka .ai-recommendation summary::-webkit-details-marker {
+            display: none;
+        }
+body.page-kekka .ai-recommendation summary:hover {
+            background: #fff3ee;
+        }
+body.page-kekka .ai-recommendation summary:focus-visible,
+body.page-kekka .result-control select:focus-visible {
+            outline: 3px solid rgba(217, 93, 57, 0.35);
+            outline-offset: 3px;
+        }
+body.page-kekka .ai-recommendation-open,
+body.page-kekka .ai-recommendation[open] .ai-recommendation-closed {
+            display: none;
+        }
+body.page-kekka .ai-recommendation[open] .ai-recommendation-open {
+            display: inline;
+        }
+body.page-kekka .ai-recommendation-content {
+            margin-top: 12px;
+            padding: 20px 24px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+body.page-kekka .ai-recommendation-content h3 {
+            margin: 0 0 12px;
+            font-size: 16px;
+        }
+body.page-kekka .ai-recommendation-content ul {
+            margin: 0;
+            padding-left: 20px;
+            line-height: 1.8;
+        }
 body.page-kekka .google-maps-attribution {
             padding: 10px 10px 5px;
         }
@@ -905,19 +988,120 @@ body.page-kekka .detail-button {
 body.page-kekka .detail-button:hover {
             background-color: var(--accent-dark);
         }
+body.page-kekka .registered-store-badge {
+            display: inline-block;
+            width: fit-content;
+            padding: 5px 9px;
+            color: #155e38;
+            background: #e7f5eb;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+body.page-kekka .place-claim-button {
+            border: 0;
+            cursor: pointer;
+            font: inherit;
+        }
+body.page-kekka #place-claim-dialog {
+            width: min(90vw, 440px);
+            padding: 24px;
+            border: 0;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgb(0 0 0 / 25%);
+        }
+body.page-kekka #place-claim-dialog::backdrop {
+            background: rgb(0 0 0 / 45%);
+        }
+body.page-kekka #place-claim-dialog h2 {
+            margin-top: 0;
+        }
+body.page-kekka #place-claim-form {
+            display: grid;
+            gap: 12px;
+        }
+body.page-kekka #place-claim-code {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 44px;
+            padding: 8px 12px;
+            font: inherit;
+        }
+body.page-kekka .place-claim-demo-code {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+        }
+body.page-kekka .place-claim-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+body.page-kekka .result[hidden] {
+            display: none;
+        }
 body.page-kekka .result-heading {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 16px;
             margin-bottom: 16px;
         }
-body.page-kekka .result-heading h3 {
-            margin: 0;
+body.page-kekka .results-back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 14px;
+            color: var(--accent-dark);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: bold;
+            text-decoration: none;
         }
-body.page-kekka .sort-label {
+body.page-kekka .results-back-link:hover {
+            border-color: var(--accent);
+            background: #fff8f4;
+        }
+body.page-kekka .results-back-link:focus-visible {
+            outline: 3px solid rgba(217, 93, 57, 0.35);
+            outline-offset: 3px;
+        }
+body.page-kekka .result-heading h3 {
+            margin: 0 auto 0 0;
+        }
+body.page-kekka .result-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+body.page-kekka .result-control {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 150px;
+        }
+body.page-kekka .result-control label {
             color: var(--muted);
             font-size: 13px;
+            font-weight: bold;
+        }
+body.page-kekka .result-control select {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 44px;
+            padding: 9px 12px;
+            color: var(--ink);
+            background-color: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            cursor: pointer;
+            font: inherit;
+        }
+body.page-kekka .result-control select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 body.page-kekka .result-tabs {
             display: flex;
@@ -1018,16 +1202,12 @@ body.page-kekka .recipe-info p {
             color: var(--muted);
             font-size: 14px;
         }
+body.page-kekka .recipe-info .recipe-text {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
 body.page-kekka .recipe-view-button {
             margin-top: 10px;
-        }
-body.page-kekka #sortOrder {
-            padding: 8px 28px 8px 10px;
-            color: var(--ink);
-            background-color: var(--surface);
-            border: 1px solid var(--line);
-            border-radius: 4px;
-            font: inherit;
         }
 body.page-kekka #recipeSortOrder {
             padding: 8px 28px 8px 10px;
@@ -1064,6 +1244,13 @@ body.page-kekka .condition-item {
             }
 body.page-kekka .condition-label {
                 display: block;
+            }
+body.page-kekka .result-controls {
+                width: 100%;
+            }
+body.page-kekka .result-control {
+                flex: 1 1 130px;
+                min-width: 0;
             }
 body.page-kekka .result {
                 display: block;
@@ -1764,26 +1951,6 @@ body.page-top .account {
             right: 32px;
             transform: translateY(-50%);
         }
-body.page-top .mode-toggle {
-            padding: 8px 12px;
-            color: var(--accent-dark);
-            background-color: #fff;
-            border: 1px solid var(--accent);
-            border-radius: 6px;
-            cursor: pointer;
-            font: inherit;
-            font-size: 13px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-body.page-top .mode-toggle:hover {
-            color: #fff;
-            background-color: var(--accent);
-        }
-body.page-top .mode-toggle:focus-visible {
-            outline: 2px solid var(--accent-dark);
-            outline-offset: 2px;
-        }
 body.page-top .logout {
             color: var(--accent-dark);
             font-size: 14px;
@@ -1822,14 +1989,6 @@ body.page-top #sidebar li {
         }
 body.page-top #sidebar .sidebar-settings-item {
             margin-left: auto;
-        }
-body.page-top .sidebar-store-management-item[hidden] {
-            display: none;
-        }
-body.page-top .sidebar-store-management {
-            display: block;
-            width: 100%;
-            font-weight: normal;
         }
 body.page-top #sidebar a {
             display: block;
@@ -2302,10 +2461,6 @@ body.page-top #header h1 {
 body.page-top .account {
                 right: 20px;
                 gap: 8px;
-            }
-body.page-top .mode-toggle {
-                padding: 7px 8px;
-                font-size: 12px;
             }
 body.page-top .logout {
                 font-size: 12px;
@@ -3147,6 +3302,12 @@ body.page-post-recipe .submit-button {
 
 body.page-post-recipe .submit-button:hover {
     background: var(--accent-dark);
+}
+
+body.page-post-recipe .submit-button:disabled,
+body.page-reservation-form .reservation-submit-button:disabled {
+    background: #bdb8b2;
+    cursor: not-allowed;
 }
 
 body.page-post-recipe .recipe-post-message {
@@ -5598,25 +5759,6 @@ body.page-mypage .sidebar-toggle span {
     border-radius: 2px;
 }
 
-body.page-mypage .mode-toggle {
-    margin-right: 10px;
-    padding: 8px 12px;
-    color: var(--accent-dark);
-    background: var(--surface);
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    cursor: pointer;
-    font: inherit;
-    font-size: 13px;
-    font-weight: bold;
-    white-space: nowrap;
-}
-
-body.page-mypage .mode-toggle:hover {
-    color: #fff;
-    background: var(--accent);
-}
-
 body.page-detail #content,
 body.page-favorite #content,
 body.page-history #content,
@@ -5745,12 +5887,6 @@ body.page-calorie #content {
     body.page-mypage #header {
         padding-right: 12px;
         padding-left: 64px;
-    }
-
-    body.page-mypage .mode-toggle {
-        margin-right: 6px;
-        padding: 7px 8px;
-        font-size: 12px;
     }
 
     body.page-mypage .account {

@@ -3,7 +3,6 @@
 {% block title %}店舗管理 - 一飯一会{% endblock %}
 {% block body_class %}page-restaurant{% endblock %}
 {% block active_nav %}{% endblock %}
-{% block navigation_script %}{% endblock %}
 {% block head %}
 <style>
     .management-choices {
@@ -40,9 +39,7 @@
     }
   </style>
 {% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 {% block sidebar %}{% endblock %}
 {% block content %}
 <a href="{{ url_for('home.top') }}" class="back-link">← ホームに戻る</a>

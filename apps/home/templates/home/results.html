@@ -5,6 +5,7 @@
 {% block active_nav %}top{% endblock %}
 
 {% block content %}
+<a href="{{ url_for('home.top') }}" class="results-back-link">← ホームに戻る</a>
 <h2>検索結果</h2>
 
         <!-- 入力条件 -->
@@ -34,50 +35,65 @@
             </div>
         </div>
 
-        {% if recommendation or recommendation_error %}
-        <section class="conditions" aria-labelledby="ai-recommendation-title">
-            <h3 id="ai-recommendation-title">気分に合わせたAIの料理提案</h3>
-            {% if recommendation %}
-            <ul>
-                {% for dish in recommendation %}
-                <li><strong>{{ dish.name }}</strong>：{{ dish.reason }}</li>
+        {% if recommendation %}
+        <details class="ai-recommendation">
+            <summary>
+                <span class="ai-recommendation-closed">AIの提案を見る</span>
+                <span class="ai-recommendation-open">AIの提案を閉じる</span>
+            </summary>
+            <div class="ai-recommendation-content">
+                <h3>気分に合わせたAIの検索提案</h3>
+                <ul>
+                {% for item in recommendation %}
+                <li><strong>{{ item.name }}</strong>：{{ item.reason }}</li>
                 {% endfor %}
-            </ul>
-            {% else %}
-            <p role="alert">{{ recommendation_error }}</p>
-            {% endif %}
-        </section>
+                </ul>
+            </div>
+        </details>
         {% endif %}
+        {% if recommendation_error %}<p role="alert">{{ recommendation_error }}</p>{% endif %}
 
         {% if search_error %}<p role="alert">{{ search_error }}</p>{% endif %}
         {% if not is_places_search %}
         <p>以下の店舗は表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
         {% endif %}
-        <div class="result-tabs" role="tablist">
-            <button type="button" class="result-tab active" role="tab" aria-selected="true" aria-controls="shop-panel" data-target="shop-panel">店舗</button>
-            <button type="button" class="result-tab" role="tab" aria-selected="false" aria-controls="recipe-list-panel" data-target="recipe-list-panel">レシピ</button>
-        </div>
-
         <!-- 検索結果 -->
-        <div id="shop-panel" class="result-panel active" role="tabpanel">
+        <div id="shop-panel">
         <div class="result-heading">
             <h3>おすすめのお店</h3>
 
-            <label for="sortOrder" class="sort-label">並び替え</label>
-            <select id="sortOrder">
-                <option value="distance">距離順</option>
-                <option value="rating">評価順</option>
-            </select>
+            <div class="result-controls">
+                {% if is_places_search and places %}
+                <div class="result-control">
+                    <label for="distanceFilter">検索距離</label>
+                    <select id="distanceFilter" disabled>
+                        {% for radius in search_radii_km %}
+                        <option value="{{ radius }}"{% if radius == default_search_radius_km %} selected{% endif %}>{{ radius }}km以内</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="result-control">
+                    <label for="sortOrder">並び替え</label>
+                    <select id="sortOrder">
+                        <option value="distance">距離順</option>
+                        <option value="rating">評価順</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         {% if is_places_search %}
-        {% if places_searched %}<p>現在地の周辺を優先して検索しています。距離は直線距離です。</p>{% endif %}
-        {% if keyword and genre %}<p>ジャンルは検索語に含めています。検索結果が厳密に絞り込まれるとは限りません。</p>{% endif %}
+        {% if places_searched %}<p>現在地から直線距離10km以内の検索結果が対象です。距離が不明な店舗は表示されません。</p>{% endif %}
+        {% if is_mood_search and places_searched and recommendation %}<p>入力文とAIの検索提案による検索結果を表示します。</p>{% endif %}
+        {% if places %}<noscript><p>距離の絞り込みにはJavaScriptが必要です。</p></noscript>{% endif %}
+        {% if (keyword or mood) and genre %}<p>ジャンルは入力文による検索語に含めています。検索結果が厳密に絞り込まれるとは限りません。</p>{% endif %}
         {% if budget %}
         <p>予算は店舗の価格帯による大まかな絞り込みです。実際の料金を保証するものではありません。価格帯が未登録の店舗は表示されない場合があります。</p>
         {% endif %}
         {% if places_error %}<p role="alert">{{ places_error }}</p>{% endif %}
         {% if places_searched and not places and not places_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
+        {% if places %}<p id="distance-filter-empty" role="status" hidden>選択した距離内に店舗が見つかりませんでした。</p>{% endif %}
         {% endif %}
 
         <!-- ルーレット起動ボタン -->
@@ -90,9 +106,14 @@
         <div id="resultList">
             {% if is_places_search %}
             {% for place in places %}
-            <div class="result" data-distance="{{ place.distance if place.distance is not none else '' }}" data-rating="{{ place.rating if place.rating is not none else '' }}">
+            <div class="result" data-place-id="{{ place.id }}" data-distance="{{ place.distance_exact }}" data-rating="{{ place.rating if place.rating is not none else '' }}">
                 <div class="result-info">
                     <h3>{{ place.name }}</h3>
+                    {% if place.account_registered %}
+                    <p class="registered-store-badge">店舗アカウント連携済み（デモ）</p>
+                    {% elif session.get("account_type") == "restaurant" and not session.get("place_id") %}
+                    <button type="button" class="detail-button place-claim-button" data-place-id="{{ place.id }}" data-place-name="{{ place.name }}">この店舗をアカウントに連携</button>
+                    {% endif %}
                     <p>{{ place.address }}</p>
                     <p>評価：{{ place.rating if place.rating is not none else "情報なし" }}</p>
                     <p>距離：{{ "約" ~ place.distance ~ "m" if place.distance is not none else "情報なし" }}</p>
@@ -189,17 +210,6 @@
         </div>
         </div>
 
-        <!-- レシピ一覧 -->
-        <section id="recipe-list-panel" class="result-panel recipe-panel" role="tabpanel" aria-labelledby="recipe-list-title">
-            <div class="recipe-panel-heading">
-                <h3 id="recipe-list-title">おすすめのレシピ</h3>
-                <div class="recipe-panel-actions">
-                    <a href="{{ url_for('recipes.post_recipe') }}" class="recipe-panel-link">＋ レシピを投稿</a>
-                </div>
-            </div>
-
-            <p class="empty-recipes">現在投稿されたレシピはありません。</p>
-        </section>
 {% endblock %}
 
 {% block after_content %}
@@ -244,27 +254,30 @@
             <p class="roulette-footnote">選択した店舗はすべて同じ確率で抽選されます。</p>
         </section>
     </div>
+    {% if session.get("account_type") == "restaurant" and not session.get("place_id") %}
+    <dialog
+        id="place-claim-dialog"
+        data-request-url="{{ url_for('restaurants.create_place_claim') }}"
+        data-verify-url="{{ url_for('restaurants.verify_place_claim') }}"
+        aria-labelledby="place-claim-title"
+    >
+        <form id="place-claim-form">
+            <h2 id="place-claim-title">店舗アカウント連携</h2>
+            <p id="place-claim-message" role="status" aria-live="polite"></p>
+            <p id="place-claim-demo-code" class="place-claim-demo-code"></p>
+            <label for="place-claim-code">認証コード</label>
+            <input id="place-claim-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required disabled>
+            <p id="place-claim-error" role="alert"></p>
+            <div class="place-claim-actions">
+                <button type="submit" id="place-claim-submit" class="detail-button" disabled>コードを確認</button>
+                <button type="button" id="place-claim-close" class="detail-button">閉じる</button>
+            </div>
+        </form>
+    </dialog>
+    {% endif %}
 {% endblock %}
 
 {% block scripts %}
-<script>
-        const resultTabs = document.querySelectorAll(".result-tab");
-        const resultPanels = document.querySelectorAll(".result-panel");
-
-        resultTabs.forEach((tab) => {
-            tab.addEventListener("click", () => {
-                resultTabs.forEach((t) => {
-                    t.classList.remove("active");
-                    t.setAttribute("aria-selected", "false");
-                });
-                resultPanels.forEach((p) => p.classList.remove("active"));
-
-                tab.classList.add("active");
-                tab.setAttribute("aria-selected", "true");
-                document.getElementById(tab.dataset.target).classList.add("active");
-            });
-        });
-    </script>
 <script>
         const sortOrder = document.getElementById("sortOrder");
         const resultList = document.getElementById("resultList");
@@ -315,4 +328,92 @@
         });
     </script>
 <script src="{{ url_for('static', filename='js/roulette.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/results-distance-filter.js') }}" defer></script>
+{% if session.get("account_type") == "restaurant" and not session.get("place_id") %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const dialog = document.querySelector("#place-claim-dialog");
+        const form = document.querySelector("#place-claim-form");
+        const message = document.querySelector("#place-claim-message");
+        const demoCode = document.querySelector("#place-claim-demo-code");
+        const codeInput = document.querySelector("#place-claim-code");
+        const error = document.querySelector("#place-claim-error");
+        const submitButton = document.querySelector("#place-claim-submit");
+        let activeButton = null;
+
+        const requestJson = async (url, body) => {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            let result;
+            try {
+                result = await response.json();
+            } catch {
+                throw new Error("サーバーからの応答を読み込めませんでした。");
+            }
+            if (!response.ok) {
+                throw new Error(result.error || "店舗連携を完了できませんでした。");
+            }
+            return result;
+        };
+
+        document.querySelectorAll(".place-claim-button").forEach((button) => {
+            button.addEventListener("click", async () => {
+                activeButton = button;
+                form.reset();
+                codeInput.disabled = true;
+                submitButton.disabled = true;
+                demoCode.textContent = "";
+                error.textContent = "";
+                message.textContent = `${button.dataset.placeName}の電話番号を確認しています。`;
+                dialog.showModal();
+                try {
+                    const result = await requestJson(dialog.dataset.requestUrl, {
+                        place_id: button.dataset.placeId
+                    });
+                    message.textContent = `掲載電話番号の末尾${result.phone_last4}にSMSを送る想定です。コードは5分間有効です。`;
+                    demoCode.textContent = `デモ用認証コード：${result.demo_code}（実際のSMSは送信されません）`;
+                    codeInput.disabled = false;
+                    submitButton.disabled = false;
+                    codeInput.focus();
+                } catch (requestError) {
+                    error.textContent = requestError instanceof Error
+                        ? requestError.message
+                        : "認証コードを発行できませんでした。";
+                }
+            });
+        });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (!form.reportValidity() || !activeButton) return;
+            submitButton.disabled = true;
+            error.textContent = "";
+            try {
+                await requestJson(dialog.dataset.verifyUrl, {
+                    code: codeInput.value
+                });
+                const badge = document.createElement("p");
+                badge.className = "registered-store-badge";
+                badge.textContent = "店舗アカウント連携済み（デモ）";
+                activeButton.replaceWith(badge);
+                message.textContent = "店舗アカウントを連携しました。";
+                demoCode.textContent = "";
+                codeInput.disabled = true;
+            } catch (verifyError) {
+                error.textContent = verifyError instanceof Error
+                    ? verifyError.message
+                    : "認証コードを確認できませんでした。";
+                submitButton.disabled = false;
+            }
+        });
+
+        document.querySelector("#place-claim-close").addEventListener("click", () => {
+            dialog.close();
+        });
+    });
+</script>
+{% endif %}
 {% endblock %}

@@ -3,10 +3,7 @@
 {% block title %}マイページ - 一飯一会{% endblock %}
 {% block body_class %}page-mypage{% endblock %}
 {% block active_nav %}mypage{% endblock %}
-{% block account_actions %}
-<button type="button" class="mode-toggle" aria-label="飲食店モードに切り替え" aria-pressed="false">飲食店へ</button>
-      <a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <div class="mypage-heading">
@@ -58,7 +55,7 @@
           <h3 id="mypage-recipes-title">投稿したレシピ</h3>
           <p>あなたが投稿したレシピを確認できます。</p>
         </div>
-        <a href="{{ url_for('recipes.post_recipe') }}">レシピを投稿する</a>
+        <a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %}>レシピを投稿する</a>
       </div>
       <p id="mypage-recipes-message" class="mypage-recipes-message" aria-live="polite">投稿したレシピはまだありません。</p>
       <div id="mypage-recipes-list" class="mypage-recipes-list"></div>

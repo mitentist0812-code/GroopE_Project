@@ -26,9 +26,10 @@
           <p id="preview-name"></p>
         </div>
 
-        <button type="button" id="estimate-button" class="estimate-button" disabled>
+        <button type="button" id="estimate-button" class="estimate-button" data-authenticated="{{ 'true' if session.get('email') else 'false' }}" disabled>
           カロリーを推定する
         </button>
+        {% if not session.get("email") %}<p class="auth-required-note">カロリー計算を利用するにはログインしてください。</p>{% endif %}
         <p class="privacy-note">選択した写真はこの画面でプレビューするだけで、送信されません。</p>
       </section>
 
@@ -56,6 +57,7 @@
       const errorMessage = document.querySelector("#photo-error");
       const estimateButton = document.querySelector("#estimate-button");
       const resultMessage = document.querySelector("#result-message");
+      const isAuthenticated = estimateButton.dataset.authenticated === "true";
       let previewUrl = "";
 
       photoInput.addEventListener("change", () => {
@@ -91,7 +93,7 @@
         previewImage.src = previewUrl;
         previewName.textContent = file.name;
         preview.hidden = false;
-        estimateButton.disabled = false;
+        estimateButton.disabled = !isAuthenticated;
         resultMessage.innerHTML = '<span class="result-icon" aria-hidden="true">🔎</span><p>写真の準備ができました。「カロリーを推定する」を押してください。</p>';
       });
 
@@ -104,6 +106,7 @@
       });
 
       estimateButton.addEventListener("click", () => {
+        if (!isAuthenticated) return;
         resultMessage.textContent = "カロリー推定機能は準備中です。画像解析機能の接続後に結果を表示します。";
       });
 

@@ -3,9 +3,7 @@
 {% block title %}店舗詳細{% if place %} - {{ place.name }}{% elif not real_place %} - 元気ラーメン{% endif %}{% endblock %}
 {% block body_class %}page-detail{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 {% if real_place %}
@@ -89,10 +87,10 @@
 				<div>
 					<div class="hero-heading">
 						<h2 id="shop-title">元気ラーメン</h2>
-						<a href="{{ url_for('restaurants.reservation_form') }}" class="button button-primary reservation-button">予約する</a>
+						<a {% if session.get("email") %}href="{{ url_for('restaurants.reservation_form') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="button button-primary reservation-button{% if not session.get('email') %} auth-disabled-control{% endif %}">予約する</a>
 					</div>
-					<button type="button" class="favorite-button active" id="favoriteButton">
-						♥ お気に入り登録済み
+					<button type="button" class="favorite-button active" id="favoriteButton" {% if not session.get("email") %}disabled{% endif %}>
+						{% if session.get("email") %}♥ お気に入り登録済み{% else %}♡ お気に入り登録{% endif %}
 					</button>
 					<p class="rating">★ 4.3（128件の口コミ）</p>
 					<p class="hero-description">こだわりの濃厚スープとボリュームのある一杯が人気のラーメン店です。</p>
@@ -167,7 +165,7 @@
 				</li>
 			</ul>
 
-			<button type="button" class="review-button" id="reviewButton">
+			<button type="button" class="review-button" id="reviewButton" {% if not session.get("email") %}disabled{% endif %}>
 				レビューをする
 			</button>
 
@@ -177,11 +175,11 @@
 
 					<label>評価</label>
 					<div class="rating-stars" id="ratingStars" aria-label="評価">
-						<button type="button" class="rating-star" data-rating="1">★</button>
-						<button type="button" class="rating-star" data-rating="2">★</button>
-						<button type="button" class="rating-star" data-rating="3">★</button>
-						<button type="button" class="rating-star" data-rating="4">★</button>
-						<button type="button" class="rating-star" data-rating="5">★</button>
+						<button type="button" class="rating-star" data-rating="1" {% if not session.get("email") %}disabled{% endif %}>★</button>
+						<button type="button" class="rating-star" data-rating="2" {% if not session.get("email") %}disabled{% endif %}>★</button>
+						<button type="button" class="rating-star" data-rating="3" {% if not session.get("email") %}disabled{% endif %}>★</button>
+						<button type="button" class="rating-star" data-rating="4" {% if not session.get("email") %}disabled{% endif %}>★</button>
+						<button type="button" class="rating-star" data-rating="5" {% if not session.get("email") %}disabled{% endif %}>★</button>
 					</div>
 					<input type="hidden" id="reviewRating" name="rating" required>
 
@@ -193,7 +191,7 @@
 						<button type="button" class="button button-secondary" id="closeReview">
 							キャンセル
 						</button>
-						<button type="submit" class="review-button">
+						<button type="submit" class="review-button" {% if not session.get("email") %}disabled{% endif %}>
 							投稿する
 						</button>
 					</div>

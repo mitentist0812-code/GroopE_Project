@@ -1,14 +1,18 @@
 from flask import Flask
 from flask_migrate import Migrate
-from apps.recipes.models import db
+
+from apps.extensions import db
 
 
-def create_app():
+def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_mapping(
         SECRET_KEY="your-secret-key",
         SQLALCHEMY_DATABASE_URI="sqlite:///groope.db",
+        PLACE_LINK_DEMO_MODE=True,
     )
+    if test_config is not None:
+        app.config.update(test_config)
 
     db.init_app(app)
     Migrate(app, db)

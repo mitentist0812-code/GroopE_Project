@@ -9,7 +9,7 @@ const script = readFileSync(join(__dirname, "..", "apps", "static", "js", "mood-
 function setup(geolocation) {
   const status = { textContent: "" };
   const loadingIndicator = { hidden: true };
-  const forms = ["recommend", "free"].map((id) => ({
+  const forms = ["recommend"].map((id) => ({
     id,
     submitButton: { disabled: false },
     elements: { latitude: {}, longitude: {} },
@@ -20,7 +20,10 @@ function setup(geolocation) {
   const handlers = {};
   const document = {
     addEventListener(name, callback) { handlers[name] = callback; },
-    querySelectorAll() { return forms; },
+    querySelectorAll(selector) {
+      assert.equal(selector, "#recommend");
+      return forms;
+    },
     querySelector(selector) {
       return selector === ".search-status" ? status : loadingIndicator;
     },
@@ -31,7 +34,7 @@ function setup(geolocation) {
   return { forms, status, loadingIndicator, handlers };
 }
 
-for (const id of ["recommend", "free"]) {
+for (const id of ["recommend"]) {
   test(`${id} shows loading through search and resets on return`, () => {
     let success;
     const state = setup({ getCurrentPosition(callback) { success = callback; } });

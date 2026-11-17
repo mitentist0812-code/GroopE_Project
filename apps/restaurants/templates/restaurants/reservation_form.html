@@ -3,9 +3,7 @@
 {% block title %}店舗予約 - 一飯一会{% endblock %}
 {% block body_class %}page-detail page-reservation-form{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}
-<a href="{{ url_for('auth.logout') }}" class="logout">ログアウト</a>
-{% endblock %}
+{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <a href="{{ url_for('restaurants.restaurant_detail') }}" class="back-link">← 店舗詳細に戻る</a>
@@ -31,9 +29,10 @@
           <input type="datetime-local" id="reservation-datetime" name="datetime" required>
         </div>
 
-        <button type="submit" class="reservation-submit-button">予約内容を確認</button>
+        <button type="submit" class="reservation-submit-button" {% if not session.get("email") %}disabled{% endif %}>予約内容を確認</button>
       </form>
 
+      {% if not session.get("email") %}<p class="auth-required-note">予約するにはログインしてください。</p>{% endif %}
       <p id="reservation-form-status" class="reservation-form-status" role="status" aria-live="polite"></p>
       <p class="reservation-form-disclaimer">  この画面は試作です。予約内容はこのブラウザ内に仮保存されますが、実際の店舗への予約は確定しません。</p>
     </section>
