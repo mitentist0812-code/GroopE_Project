@@ -13,36 +13,52 @@ home = Blueprint("home", __name__, template_folder="templates")
 
 @home.get("/")
 def top():
+    """ホーム画面を表示"""
     return render_template("home/top.html")
 
 
 @home.route("/results", methods=["GET", "POST"])
 def results():
+    """
+    検索結果ページ
+    - 気分検索: Ollama AIで料理を提案し、Google Places APIで店舗検索
+    - キーワード検索: ユーザーキーワードで店舗検索
+    - 入力検証、API エラー処理、距離でのソートを実施
+    """
     form = request.form if request.method == "POST" else request.args
     mood = form.get("dishName", "").strip()
-    keyword = request.args.get("keyword", "").strip()
+    keyword = form.get("keyword", "").strip()
     budget = form.get("budget", "").strip()
     genre = form.get("genre", "").strip()
     recommendation = None
     error = None
+    search_error = None
     places_error = None
     places = []
     is_mood_search = "dishName" in form
+    is_free_search = "keyword" in form and not is_mood_search
+    is_places_search = is_mood_search or is_free_search
+    queries = []
     status = 200
     latitude = None
     longitude = None
 
-    if is_mood_search:
-        if not mood or len(mood) > 200:
-            error = "気分を200文字以内で入力してください。"
+    if is_places_search:
+        # 入力値の検証
+        if is_mood_search and (not mood or len(mood) > 200):
+            search_error = "気分を200文字以内で入力してください。"
+            status = 400
+        elif is_free_search and (not keyword or len(keyword) > 200):
+            search_error = "キーワードを200文字以内で入力してください。"
             status = 400
         elif genre not in ("", "和", "洋", "中", "その他"):
-            error = "料理ジャンルを選択し直してください。"
+            search_error = "料理ジャンルを選択し直してください。"
             status = 400
         elif budget and (not budget.isascii() or not budget.isdecimal() or len(budget) > 9):
-            error = "予算は0以上の整数で入力してください。"
+            search_error = "予算は0以上の整数で入力してください。"
             status = 400
         else:
+            # 位置情報の検証
             try:
                 latitude = float(form.get("latitude", ""))
                 longitude = float(form.get("longitude", ""))
@@ -52,18 +68,26 @@ def results():
                 places_error = "店舗検索には現在地の取得が必要です。ホーム画面から位置情報を許可して再検索してください。"
                 status = 400
             else:
-                try:
-                    recommendation = suggest_dishes(mood, genre)
-                except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
-                    current_app.logger.exception("Ollamaによる料理の提案に失敗しました")
-                    error = "AIの提案を取得できませんでした。Ollamaとモデルが利用できるか確認して、もう一度お試しください。"
-                    status = 503
-
-            if recommendation:
-                seen = set()
-                for dish in recommendation:
+                if is_mood_search:
+                    # 気分検索: Ollama AIで料理提案を取得
                     try:
-                        found = search_places(dish["name"], int(budget) if budget else None, latitude, longitude)
+                        recommendation = suggest_dishes(mood, genre)
+                        queries = [dish["name"] + " レストラン" for dish in recommendation]
+                    except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
+                        current_app.logger.exception("Ollamaによる料理の提案に失敗しました")
+                        error = "AIの提案を取得できませんでした。Ollamaとモデルが利用できるか確認して、もう一度お試しください。"
+                        status = 503
+                else:
+                    # キーワード検索: ジャンルを追加してクエリを構築
+                    genre_names = {"和": "和食", "洋": "洋食", "中": "中華", "その他": "その他"}
+                    queries = [keyword + (" " + genre_names[genre] if genre else "")]
+
+            if queries:
+                # Google Places APIで店舗を検索
+                seen = set()
+                for query in queries:
+                    try:
+                        found = search_places(query, int(budget) if budget else None, latitude, longitude)
                     except PlacesAPIError as exc:
                         current_app.logger.error("Places API error: HTTP %s, reasons: %s", exc.status_code, ", ".join(exc.reasons) or "unknown")
                         if "API_KEY_INVALID" in exc.reasons:
@@ -85,6 +109,7 @@ def results():
                         if place["id"] not in seen:
                             seen.add(place["id"])
                             places.append(place)
+                # 距離でソート（距離情報がない場合は最後）
                 places.sort(key=lambda place: place["distance"] if place["distance"] is not None else float("inf"))
 
     return render_template(
@@ -95,13 +120,21 @@ def results():
         genre=genre,
         recommendation=recommendation,
         recommendation_error=error,
+        search_error=search_error,
         places=places,
         places_error=places_error,
         is_mood_search=is_mood_search,
+        is_places_search=is_places_search,
+        places_searched=bool(queries),
     ), status
 
 
 def suggest_dishes(mood, genre):
+    """
+    Ollama AIで気分とジャンルに合う料理を提案
+    - JSONスキーマで3つの料理を指定形式で取得
+    - 入力検証でスキーマ構造と各フィールドの長さをチェック
+    """
     payload = json.dumps({
         "model": os.environ.get("OLLAMA_MODEL", "llama3.1"),
         "prompt": (

@@ -1,9 +1,17 @@
 from flask import Flask
+from flask_migrate import Migrate
+from apps.recipes.models import db
 
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_mapping(SECRET_KEY="your-secret-key")
+    app.config.from_mapping(
+        SECRET_KEY="your-secret-key",
+        SQLALCHEMY_DATABASE_URI="sqlite:///groope.db",
+    )
+
+    db.init_app(app)
+    Migrate(app, db)
 
     from apps.auth import auth
     from apps.home import home
@@ -19,3 +27,5 @@ def create_app():
     app.register_blueprint(restaurants, url_prefix="/restaurants")
     app.register_blueprint(users, url_prefix="/users")
     return app
+
+

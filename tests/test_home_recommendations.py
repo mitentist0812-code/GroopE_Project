@@ -44,14 +44,64 @@ class HomeRecommendationTests(unittest.TestCase):
         self.assertIn("料理ジャンル: 和", payload["prompt"])
         self.assertNotIn("12345", payload["prompt"])
         self.assertNotIn("35.68", payload["prompt"])
-        self.assertEqual([call.args[0] for call in places.call_args_list], ["うどん", "そば", "寿司"])
+        self.assertEqual([call.args[0] for call in places.call_args_list], ["うどん レストラン", "そば レストラン", "寿司 レストラン"])
         self.assertEqual(places.call_args.args[1:], (12345, 35.68, 139.76))
 
     @patch("apps.home.views.urlopen")
-    def test_free_search_and_direct_link_do_not_call_ollama(self, urlopen):
-        self.assertEqual(self.client.get("/results", query_string={"keyword": "カレー"}).status_code, 200)
+    def test_direct_link_does_not_call_ollama(self, urlopen):
         self.assertEqual(self.client.get("/results").status_code, 200)
         urlopen.assert_not_called()
+
+    @patch("apps.home.views.search_places")
+    @patch("apps.home.views.suggest_dishes")
+    def test_free_search_uses_keyword_genre_and_budget_without_ai(self, suggest, search):
+        search.return_value = [{"id": "p1", "name": "カレー店", "address": "東京", "distance": 10,
+                                "rating": 4.5, "price": "普通", "url": "", "attributions": []}]
+        response = self.client.post("/results", data={
+            "keyword": " カレー店 ", "genre": "洋", "budget": "1500",
+            "latitude": "35.68", "longitude": "139.76",
+        })
+        self.assertEqual(response.status_code, 200)
+        search.assert_called_once_with("カレー店 洋食", 1500, 35.68, 139.76)
+        suggest.assert_not_called()
+        text = response.get_data(as_text=True)
+        self.assertIn("カレー店", text)
+        self.assertIn('href="/restaurants/detail/p1"', text)
+        self.assertNotIn("元気ラーメン", text)
+
+    @patch("apps.home.views.search_places", return_value=[])
+    @patch("apps.home.views.suggest_dishes")
+    def test_free_search_without_genre_or_budget(self, suggest, search):
+        response = self.client.post("/results", data={
+            "keyword": "寿司", "latitude": "35.68", "longitude": "139.76",
+        })
+        self.assertEqual(response.status_code, 200)
+        search.assert_called_once_with("寿司", None, 35.68, 139.76)
+        self.assertIn("条件に合う店舗が見つかりませんでした", response.get_data(as_text=True))
+        suggest.assert_not_called()
+
+    @patch("apps.home.views.search_places")
+    @patch("apps.home.views.suggest_dishes")
+    def test_invalid_free_search_is_visible(self, suggest, search):
+        for update in ({"keyword": " "}, {"keyword": "あ" * 201}, {"genre": "bad"},
+                       {"budget": "-1"}, {"latitude": "NaN"}):
+            with self.subTest(update=update):
+                response = self.client.post("/results", data={
+                    "keyword": "寿司", "latitude": "35.68", "longitude": "139.76", **update,
+                })
+                self.assertEqual(response.status_code, 400)
+                self.assertNotIn("元気ラーメン", response.get_data(as_text=True))
+        search.assert_not_called()
+        suggest.assert_not_called()
+
+    @patch("apps.home.views.search_places", side_effect=PlacesAPIError(400, ["API_KEY_INVALID"]))
+    def test_free_search_api_error_is_visible(self, search):
+        response = self.client.post("/results", data={
+            "keyword": "寿司", "latitude": "35.68", "longitude": "139.76",
+        })
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("APIキーが無効", response.get_data(as_text=True))
+        self.assertNotIn("元気ラーメン", response.get_data(as_text=True))
 
     @patch("apps.home.views.urlopen")
     def test_invalid_input_does_not_call_ollama(self, urlopen):
@@ -125,7 +175,7 @@ class PlacesTests(unittest.TestCase):
             "googleMapsUri": "https://maps.google.com/?cid=1",
             "attributions": [{"provider": "提供元", "providerUri": "https://example.com"}],
         }]})
-        places = search_places("うどん", 1500, 35.68, 139.76)
+        places = search_places("うどん レストラン", 1500, 35.68, 139.76)
         api_request = urlopen.call_args.args[0]
         payload = json.loads(api_request.data)
         self.assertEqual(payload["textQuery"], "うどん レストラン")

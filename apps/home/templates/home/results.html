@@ -49,10 +49,9 @@
         </section>
         {% endif %}
 
-        {% if is_mood_search %}
-        <p>レシピ一覧は表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
-        {% else %}
-        <p>以下の店舗・レシピは表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
+        {% if search_error %}<p role="alert">{{ search_error }}</p>{% endif %}
+        {% if not is_places_search %}
+        <p>以下の店舗は表示例です。検索条件やAIの提案に基づく結果ではありません。</p>
         {% endif %}
         <div class="result-tabs" role="tablist">
             <button type="button" class="result-tab active" role="tab" aria-selected="true" aria-controls="shop-panel" data-target="shop-panel">店舗</button>
@@ -71,13 +70,14 @@
             </select>
         </div>
 
-        {% if is_mood_search %}
-        {% if recommendation %}<p>現在地の周辺を優先して検索しています。距離は直線距離です。</p>{% endif %}
+        {% if is_places_search %}
+        {% if places_searched %}<p>現在地の周辺を優先して検索しています。距離は直線距離です。</p>{% endif %}
+        {% if keyword and genre %}<p>ジャンルは検索語に含めています。検索結果が厳密に絞り込まれるとは限りません。</p>{% endif %}
         {% if budget %}
         <p>予算は店舗の価格帯による大まかな絞り込みです。実際の料金を保証するものではありません。価格帯が未登録の店舗は表示されない場合があります。</p>
         {% endif %}
         {% if places_error %}<p role="alert">{{ places_error }}</p>{% endif %}
-        {% if recommendation and not places and not places_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
+        {% if places_searched and not places and not places_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
         {% endif %}
 
         <!-- ルーレット起動ボタン -->
@@ -88,7 +88,7 @@
         </div>
 
         <div id="resultList">
-            {% if is_mood_search %}
+            {% if is_places_search %}
             {% for place in places %}
             <div class="result" data-distance="{{ place.distance if place.distance is not none else '' }}" data-rating="{{ place.rating if place.rating is not none else '' }}">
                 <div class="result-info">
@@ -194,47 +194,11 @@
             <div class="recipe-panel-heading">
                 <h3 id="recipe-list-title">おすすめのレシピ</h3>
                 <div class="recipe-panel-actions">
-                    <label for="recipeSortOrder" class="sort-label">並び替え</label>
-                    <select id="recipeSortOrder" aria-label="レシピの並び替え">
-                        <option value="date">新着順</option>
-                        <option value="rating">評価順</option>
-                    </select>
                     <a href="{{ url_for('recipes.post_recipe') }}" class="recipe-panel-link">＋ レシピを投稿</a>
                 </div>
             </div>
 
-            <ul class="recipe-list" id="recipeList">
-                <li class="recipe-item" data-date="2026-10-12" data-rating="4.8">
-                    <div class="recipe-thumb">料理画像</div>
-                    <div class="recipe-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">やみつき豚キムチ丼</a></h4>
-                        <p>材料：豚バラ肉、キムチ、卵 ほか</p>
-                        <p>投稿者：ユーザーA</p>
-                        <p>⭐ 4.8 ・ 投稿日：<time datetime="2026-10-12">2026年10月12日</time></p>
-                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
-                    </div>
-                </li>
-                <li class="recipe-item" data-date="2026-10-08" data-rating="4.6">
-                    <div class="recipe-thumb">料理画像</div>
-                    <div class="recipe-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">ガッツリ唐揚げ</a></h4>
-                        <p>材料：鶏もも肉、片栗粉、しょうゆ ほか</p>
-                        <p>投稿者：ユーザーB</p>
-                        <p>⭐ 4.6 ・ 投稿日：<time datetime="2026-10-08">2026年10月8日</time></p>
-                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
-                    </div>
-                </li>
-                <li class="recipe-item" data-date="2026-10-03" data-rating="4.9">
-                    <div class="recipe-thumb">料理画像</div>
-                    <div class="recipe-info">
-                        <h4><a href="{{ url_for('recipes.recipe_detail') }}">スタミナ肉野菜炒め</a></h4>
-                        <p>材料：豚こま肉、キャベツ、にんにく ほか</p>
-                        <p>投稿者：ユーザーC</p>
-                        <p>⭐ 4.9 ・ 投稿日：<time datetime="2026-10-03">2026年10月3日</time></p>
-                        <a href="{{ url_for('recipes.recipe_detail') }}" class="detail-button recipe-view-button">レシピを見る</a>
-                    </div>
-                </li>
-            </ul>
+            <p class="empty-recipes">現在投稿されたレシピはありません。</p>
         </section>
 {% endblock %}
 
@@ -319,23 +283,6 @@
             });
 
             results.forEach((result) => resultList.appendChild(result));
-        });
-    </script>
-<script>
-        const recipeSortOrder = document.getElementById("recipeSortOrder");
-        const recipeList = document.getElementById("recipeList");
-
-        recipeSortOrder.addEventListener("change", () => {
-            const recipes = [...recipeList.querySelectorAll(".recipe-item")];
-            const key = recipeSortOrder.value;
-
-            recipes.sort((a, b) => {
-                const valueA = key === "date" ? Date.parse(a.dataset.date) : Number(a.dataset.rating);
-                const valueB = key === "date" ? Date.parse(b.dataset.date) : Number(b.dataset.rating);
-                return valueB - valueA;
-            });
-
-            recipes.forEach((recipe) => recipeList.appendChild(recipe));
         });
     </script>
 <script>
