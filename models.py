@@ -105,7 +105,7 @@ class Favorite(db.Model):
 class Review(db.Model):
     __tablename__ = "Review"
     review_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    restaurant_id = db.Column(db.Integer, db.ForeignKey("Restaurant.store_id"), primary_key=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("Restaurant.store_id"))
     user_id = db.Column(db.Integer, db.ForeignKey("User.user_id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
@@ -116,7 +116,7 @@ class Review(db.Model):
 class Reservation(db.Model):
     __tablename__ = "Reservation"
     reservation_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    restaurant_id = db.Column(db.Integer, db.ForeignKey("Restaurant.store_id"),primary_key=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("Restaurant.store_id"))
     user_id = db.Column(db.Integer, db.ForeignKey("User.user_id"), nullable=False)
     reservation_datetime = db.Column(db.DateTime, nullable=False)
     party_size = db.Column(db.Integer, nullable=False)
