@@ -9,33 +9,40 @@
 <h2>レシピ投稿</h2>
     <p class="page-intro">お気に入りのレシピをみんなに共有しましょう。</p>
 
-    <form action="" method="post" enctype="multipart/form-data">
+    {% if error %}<p role="alert">{{ error }} 写真を選択した場合は再度選択してください。</p>{% endif %}
+    <form action="{{ url_for('recipes.post_recipe') }}" method="post" enctype="multipart/form-data">
       <div class="field">
         <label for="title">レシピ名 <span class="required">必須</span></label>
-        <input type="text" id="title" name="title" placeholder="例：野菜たっぷりカレー" required>
+        <input type="text" id="title" name="title" placeholder="例：野菜たっぷりカレー" maxlength="100" value="{{ request.form.get('title', '') }}" required>
       </div>
 
       <div class="field">
         <label for="dishimg">料理の写真</label>
-        <input type="file" id="dishimg" name="dishimg" accept="image/*">
-        <small>料理の仕上がりがわかる写真を選択してください。画像は1枚300KB以下にしてください。</small>
+        <input type="file" id="dishimg" name="dishimg" accept="image/png,image/jpeg,image/gif,image/webp">
+        <small>画像はPNG・JPEG・GIF・WebP形式で、1枚300KB以下にしてください。</small>
+        <img class="recipe-photo-preview" alt="料理の写真のプレビュー" hidden>
+        <p class="recipe-photo-preview-error" role="status" hidden></p>
       </div>
 
       <fieldset class="ingredients-field">
         <legend>材料 <span class="required">必須</span></legend>
         <p class="ingredients-hint">材料名と分量を1つずつ入力してください。</p>
         <div id="ingredient-list">
+          {% set names = request.form.getlist('ingredient_name[]') or [''] %}
+          {% set amounts = request.form.getlist('ingredient_amount[]') %}
+          {% for name in names %}
           <div class="ingredient-row">
             <div class="field">
-              <label for="ingredient-name-1">材料名</label>
-              <input type="text" id="ingredient-name-1" name="ingredient_name[]" placeholder="例：玉ねぎ" required>
+              <label for="ingredient-name-{{ loop.index }}">材料名</label>
+              <input type="text" id="ingredient-name-{{ loop.index }}" name="ingredient_name[]" value="{{ name }}" placeholder="例：玉ねぎ" required>
             </div>
             <div class="field">
-              <label for="ingredient-amount-1">分量</label>
-              <input type="text" id="ingredient-amount-1" name="ingredient_amount[]" placeholder="例：1個" required>
+              <label for="ingredient-amount-{{ loop.index }}">分量</label>
+              <input type="text" id="ingredient-amount-{{ loop.index }}" name="ingredient_amount[]" value="{{ amounts[loop.index0] if loop.index0 < amounts|length else '' }}" placeholder="例：1個" required>
             </div>
-            <button type="button" class="remove-ingredient-button" aria-label="この材料を削除" hidden>削除</button>
+            <button type="button" class="remove-ingredient-button" aria-label="この材料を削除" {% if names|length == 1 %}hidden{% endif %}>削除</button>
           </div>
+          {% endfor %}
         </div>
         <button type="button" id="add-ingredient-button" class="add-step-button">＋ 材料を追加</button>
       </fieldset>
@@ -43,18 +50,23 @@
       <fieldset class="step-field">
         <legend>作り方</legend>
         <div id="step-list">
+          {% set steps = request.form.getlist('process[]') or [''] %}
+          {% for step in steps %}
           <div class="step-item">
             <div class="field">
-              <label for="process-text-1" class="step-label">工程1</label>
-              <textarea id="process-text-1" name="process[]" rows="3" placeholder="作り方を入力してください"></textarea>
+              <label for="process-text-{{ loop.index }}" class="step-label">工程{{ loop.index }}</label>
+              <textarea id="process-text-{{ loop.index }}" name="process[]" rows="3" placeholder="作り方を入力してください">{{ step }}</textarea>
             </div>
             <div class="field">
-              <label for="process-img-1">工程の写真</label>
-              <input type="file" id="process-img-1" name="process_img[]" accept="image/*">
+              <label for="process-img-{{ loop.index }}">工程の写真</label>
+              <input type="file" id="process-img-{{ loop.index }}" name="process_img[]" accept="image/png,image/jpeg,image/gif,image/webp">
               <small>画像は1枚300KB以下にしてください。</small>
+              <img class="recipe-photo-preview" alt="工程の写真のプレビュー" hidden>
+              <p class="recipe-photo-preview-error" role="status" hidden></p>
             </div>
-            <button type="button" class="remove-step-button" hidden>この工程を削除</button>
+            <button type="button" class="remove-step-button" {% if steps|length == 1 %}hidden{% endif %}>この工程を削除</button>
           </div>
+          {% endfor %}
         </div>
         <button type="button" id="add-step-button" class="add-step-button">＋ 工程を追加</button>
       </fieldset>
@@ -67,11 +79,12 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/recipes.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/recipe-photo-preview.js') }}" defer></script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
       const ingredientList = document.querySelector("#ingredient-list");
       const addIngredientButton = document.querySelector("#add-ingredient-button");
-      let ingredientNumber = 1;
+      let ingredientNumber = ingredientList.querySelectorAll(".ingredient-row").length;
 
       const updateRemoveButtons = () => {
         const rows = ingredientList.querySelectorAll(".ingredient-row");
@@ -128,7 +141,7 @@
 
       const stepList = document.querySelector("#step-list");
       const addStepButton = document.querySelector("#add-step-button");
-      let stepNumber = 1;
+      let stepNumber = stepList.querySelectorAll(".step-item").length;
 
       const updateSteps = () => {
         const items = stepList.querySelectorAll(".step-item");
@@ -149,8 +162,10 @@
           </div>
           <div class="field">
             <label for="process-img-${stepNumber}">工程の写真</label>
-            <input type="file" id="process-img-${stepNumber}" name="process_img[]" accept="image/*">
+            <input type="file" id="process-img-${stepNumber}" name="process_img[]" accept="image/png,image/jpeg,image/gif,image/webp">
             <small>画像は1枚300KB以下にしてください。</small>
+            <img class="recipe-photo-preview" alt="工程の写真のプレビュー" hidden>
+            <p class="recipe-photo-preview-error" role="status" hidden></p>
           </div>
           <button type="button" class="remove-step-button">この工程を削除</button>
         `;

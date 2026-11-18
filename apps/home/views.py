@@ -5,11 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 from sqlalchemy import or_
+from sqlalchemy.orm import selectinload
 
 from apps.auth.models import Account
-from apps.recipes.models import Recipe_list
+from apps.recipes.models import Recipe_list, RecipePhoto
 from .places import SEARCH_RADIUS_METERS, PlacesAPIError, search_places
 
 home = Blueprint("home", __name__, template_folder="templates")
@@ -20,7 +21,42 @@ DEFAULT_SEARCH_RADIUS_KM = str(SEARCH_RADIUS_METERS // 1000)
 @home.get("/")
 def top():
     """ホーム画面を表示"""
-    return render_template("home/top.html")
+    recent_recipes = (
+        Recipe_list.query.options(
+            selectinload(Recipe_list.photos).load_only(
+                RecipePhoto.id, RecipePhoto.recipe_id, RecipePhoto.step_index,
+            )
+        ).order_by(Recipe_list.created_at.desc(), Recipe_list.id.desc()).limit(3).all()
+    )
+    return render_template("home/top.html", recent_recipes=recent_recipes)
+
+
+@home.get("/nearby")
+def nearby_places():
+    """現在地周辺の飲食店をホーム画面向けに取得"""
+    try:
+        latitude = float(request.args.get("latitude", ""))
+        longitude = float(request.args.get("longitude", ""))
+        if not math.isfinite(latitude) or not math.isfinite(longitude) or abs(latitude) > 90 or abs(longitude) > 180:
+            raise ValueError("Invalid coordinates")
+    except ValueError:
+        return jsonify(error="近くのお店を表示するには現在地の取得が必要です。"), 400
+
+    try:
+        places = search_places("飲食店", None, latitude, longitude)
+    except PlacesAPIError as exc:
+        current_app.logger.error(
+            "Places API error: HTTP %s, reasons: %s",
+            exc.status_code,
+            ", ".join(exc.reasons) or "unknown",
+        )
+        return jsonify(error="近くのお店を取得できませんでした。Google Maps APIの設定を確認してください。"), 503
+    except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
+        current_app.logger.exception("Places APIによる近くのお店の検索に失敗しました")
+        return jsonify(error="近くのお店を取得できませんでした。時間をおいて再度お試しください。"), 503
+
+    places.sort(key=lambda place: place["distance"] if place["distance"] is not None else float("inf"))
+    return jsonify(places=places[:3])
 
 
 @home.route("/recipe-results", methods=["GET", "POST"])
@@ -33,7 +69,11 @@ def recipe_results():
             search_error="キーワードを200文字以内で入力してください。",
         ), 400
 
-    recipes = Recipe_list.query.filter(or_(
+    recipes = Recipe_list.query.options(
+        selectinload(Recipe_list.photos).load_only(
+            RecipePhoto.id, RecipePhoto.recipe_id, RecipePhoto.step_index,
+        )
+    ).filter(or_(
         Recipe_list.recipe_name.contains(keyword, autoescape=True),
         Recipe_list.ingredients.contains(keyword, autoescape=True),
         Recipe_list.description.contains(keyword, autoescape=True),

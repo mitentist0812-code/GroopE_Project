@@ -57,8 +57,37 @@
         </div>
         <a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %}>レシピを投稿する</a>
       </div>
+      {% for message in get_flashed_messages() %}<p role="status">{{ message }}</p>{% endfor %}
+      {% if not posted_recipes %}
       <p id="mypage-recipes-message" class="mypage-recipes-message" aria-live="polite">投稿したレシピはまだありません。</p>
-      <div id="mypage-recipes-list" class="mypage-recipes-list"></div>
+      {% endif %}
+      <div id="mypage-recipes-list" class="mypage-recipes-list">
+        {% for recipe in posted_recipes %}
+        <article class="mypage-recipe-card">
+          {% if recipe.main_photo %}
+          <a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}"><img class="mypage-recipe-image" src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy"></a>
+          {% endif %}
+          <div class="mypage-recipe-content">
+            <h4><a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
+            <time class="mypage-recipe-date" datetime="{{ recipe.created_at.isoformat() if recipe.created_at else '' }}">{{ '投稿日：' ~ recipe.created_at.strftime('%Y/%m/%d') if recipe.created_at else '投稿日不明' }}</time>
+            <p class="mypage-recipe-summary recipe-text">材料：{{ recipe.ingredients }}</p>
+            {% if recipe.steps %}
+            <ol class="mypage-recipe-steps">
+              {% for step in recipe.steps %}
+              {% set step_index = loop.index0 %}
+              <li>
+                <p class="recipe-text">{{ step }}</p>
+                {% for photo in recipe.photos if photo.step_index == step_index %}
+                <img class="mypage-recipe-image" src="{{ url_for('recipes.recipe_photo', photo_id=photo.id) }}" alt="工程{{ step_index + 1 }}の写真" loading="lazy">
+                {% endfor %}
+              </li>
+              {% endfor %}
+            </ol>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
     </section>
 {% endblock %}
 

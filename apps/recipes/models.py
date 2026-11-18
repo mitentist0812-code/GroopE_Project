@@ -77,6 +77,26 @@ class Recipe_list(db.Model):
         db.DateTime,
         default=datetime.now
     )
+
+    account_id = db.Column(db.Integer, db.ForeignKey("account.id"), index=True)
+    steps = db.Column(db.JSON)
+    photos = db.relationship("RecipePhoto", backref="recipe", cascade="all, delete-orphan")
+
+    @property
+    def main_photo(self):
+        return next((photo for photo in self.photos if photo.step_index is None), None)
+
+
+class RecipePhoto(db.Model):
+    __tablename__ = "recipe_photo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipe_id = db.Column(db.Integer, db.ForeignKey("recipe_list.id"), nullable=False, index=True)
+    step_index = db.Column(db.Integer)
+    content_type = db.Column(db.String(20), nullable=False)
+    data = db.Column(db.LargeBinary, nullable=False)
+
+
 # ============================================
 # レシピ閲覧履歴テーブル
 # ============================================

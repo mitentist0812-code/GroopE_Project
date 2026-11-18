@@ -47,6 +47,32 @@ class HomeRecommendationTests(unittest.TestCase):
         db.drop_all()
         self.context.pop()
 
+    @patch("apps.home.views.search_places")
+    def test_home_loads_nearby_places_from_the_browser_location(self, search):
+        search.return_value = [
+            {"id": "farther", "name": "少し遠い店", "distance": 900, "rating": 4.2, "url": "", "address": "住所"},
+            {"id": "nearest", "name": "近い店", "distance": 150, "rating": 4.5, "url": "", "address": "住所"},
+            {"id": "middle", "name": "中間の店", "distance": 500, "rating": None, "url": "", "address": "住所"},
+            {"id": "last", "name": "4番目の店", "distance": 1000, "rating": 4.0, "url": "", "address": "住所"},
+        ]
+
+        home_response = self.client.get("/")
+        self.assertEqual(home_response.status_code, 200)
+        self.assertIn('id="nearby-places"', home_response.get_data(as_text=True))
+        search.assert_not_called()
+
+        response = self.client.get("/nearby?latitude=35.68&longitude=139.76")
+        self.assertEqual(response.status_code, 200)
+        search.assert_called_once_with("飲食店", None, 35.68, 139.76)
+        self.assertEqual([place["id"] for place in response.json["places"]], ["nearest", "middle", "farther"])
+
+    @patch("apps.home.views.search_places")
+    def test_nearby_search_rejects_invalid_coordinates(self, search):
+        response = self.client.get("/nearby?latitude=NaN&longitude=139.76")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("現在地", response.json["error"])
+        search.assert_not_called()
+
     @patch("apps.home.views.search_places", return_value=[])
     @patch("apps.home.views.urlopen")
     def test_sends_mood_and_genre_but_not_budget_or_location_to_ollama(self, urlopen, places):
@@ -414,7 +440,7 @@ class RecipeSearchTests(unittest.TestCase):
         self.assertIn("トマト\n麺", text)
         self.assertIn("煮込む", text)
         self.assertNotIn("卵料理", text)
-        self.assertNotIn("/recipes/detail", text)
+        self.assertIn('href="/recipes/', text)
         suggest.assert_not_called()
         places.assert_not_called()
 

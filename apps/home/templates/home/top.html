@@ -120,37 +120,13 @@
         <section class="nearby-section" aria-labelledby="nearby-title">
             <div class="nearby-header">
                 <h3 id="nearby-title">近くの飲食店</h3>
-                <a href="{{ url_for('home.results') }}">もっと見る</a>
+                <a href="{{ url_for('home.results') }}" id="nearby-more-link">もっと見る</a>
             </div>
 
-            <div class="nearby-list">
-                <article class="nearby-card">
-                    <div class="thumb">店</div>
-                    <div class="info">
-                        <h4>元気ラーメン</h4>
-                        <p>⭐ 4.3　📍 450m</p>
-                        <p>醤油ラーメン・半チャーハン</p>
-                    </div>
-                </article>
-
-                <article class="nearby-card">
-                    <div class="thumb">店</div>
-                    <div class="info">
-                        <h4>スタミナ食堂</h4>
-                        <p>⭐ 4.1　📍 700m</p>
-                        <p>定食・炭火焼き</p>
-                    </div>
-                </article>
-
-                <article class="nearby-card">
-                    <div class="thumb">店</div>
-                    <div class="info">
-                        <h4>肉盛り亭</h4>
-                        <p>⭐ 4.5　📍 900m</p>
-                        <p>焼肉定食・サラダ</p>
-                    </div>
-                </article>
-            </div>
+            <section id="nearby-places" data-nearby-url="{{ url_for('home.nearby_places') }}">
+                <p id="nearby-status" role="status" aria-live="polite">現在地を取得しています。</p>
+                <div class="nearby-list"></div>
+            </section>
         </section>
 
         <section class="recommended-recipes" aria-labelledby="recommended-recipes-title">
@@ -158,12 +134,30 @@
                 <h3 id="recommended-recipes-title">新着レシピ</h3>
             </div>
 
+            {% if recent_recipes %}
+            <div class="recipe-cards">
+                {% for recipe in recent_recipes %}
+                <article class="recipe-card">
+                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">
+                        {% if recipe.main_photo %}
+                        <img src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy">
+                        {% else %}<span>写真なし</span>{% endif %}
+                    </a>
+                    <div class="recipe-card-info">
+                        <h4><a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
             <p class="empty-recipes">現在投稿されたレシピはありません。</p>
+            {% endif %}
         </section>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/mood-search.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/nearby-places.js') }}" defer></script>
 <script>
         const tabButtons = document.querySelectorAll(".tab-button");
         const searchPanels = document.querySelectorAll(".search-panel");

@@ -17,8 +17,15 @@
 <ul class="recipe-list">
     {% for recipe in recipes %}
     <li class="recipe-item">
+        {% if recipe.main_photo %}
+        <a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">
+            <img class="recipe-thumb" src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy">
+        </a>
+        {% else %}
+        <div class="recipe-thumb">写真なし</div>
+        {% endif %}
         <article class="recipe-info">
-            <h4>{{ recipe.recipe_name }}</h4>
+            <h4><a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
             <h5>材料</h5>
             <p class="recipe-text">{{ recipe.ingredients }}</p>
             <h5>作り方</h5>
