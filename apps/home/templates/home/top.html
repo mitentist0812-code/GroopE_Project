@@ -6,16 +6,18 @@
 {% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
+{% set is_restaurant = session.get("account_type") == "restaurant" %}
 <nav class="home-actions" aria-label="便利なメニュー">
-            <a {% if session.get("email") %}href="{{ url_for('users.favorite') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="favorite-link{% if not session.get('email') %} auth-disabled-control{% endif %}">
+            <a {% if session.get("email") and not is_restaurant %}href="{{ url_for('users.favorite') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if is_restaurant else 'ログインすると利用できます' }}"{% endif %} class="favorite-link{% if not session.get('email') or is_restaurant %} auth-disabled-control{% endif %}">
                 <span class="home-action-icon" aria-hidden="true">♡</span>
                 <span>お気に入りを見る</span>
             </a>
-            <a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="recipe-post-link{% if not session.get('email') %} auth-disabled-control{% endif %}">
+            <a {% if session.get("email") and not is_restaurant %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if is_restaurant else 'ログインすると利用できます' }}"{% endif %} class="recipe-post-link{% if not session.get('email') or is_restaurant %} auth-disabled-control{% endif %}">
                 <span class="home-action-icon" aria-hidden="true">＋</span>
                 <span>レシピを投稿する</span>
             </a>
         </nav>
+        {% if is_restaurant %}<p class="auth-required-note">店舗アカウントでは一般ユーザー向けの一部機能を利用できません。店舗検索と店舗管理は利用できます。</p>{% endif %}
 
         <div class="search-shell">
             <div class="search-tabs">
@@ -23,7 +25,7 @@
                     <img src="{{ url_for('static', filename='img/feeling.png') }}" alt="" aria-hidden="true">
                     外で食べる
                 </button>
-                <button type="button" class="tab-button" data-tab="home-recipes">
+                <button type="button" class="tab-button" data-tab="home-recipes"{% if is_restaurant %} disabled title="店舗アカウントでは利用できません"{% endif %}>
                     <img src="{{ url_for('static', filename='img/free.png') }}" alt="" aria-hidden="true">
                     家で食べる
                 </button>
@@ -63,6 +65,7 @@
             </form>
 
             <form action="{{ url_for('home.recipe_results') }}" method="get" id="home-recipes" class="search-panel">
+                <fieldset{% if is_restaurant %} disabled{% endif %} class="recipe-search-fields">
                 <div class="form-grid">
                     <div class="field-group featured-query-field">
                         <label for="recipeKeyword">レシピを探す</label>
@@ -73,6 +76,7 @@
 
                 <input type="submit" value="検索">
                 <p>保存済みレシピの名前・材料・作り方を検索します。位置情報は使用しません。</p>
+                </fieldset>
             </form>
             <p class="search-status" role="status" aria-live="polite"></p>
         </div>
@@ -133,18 +137,18 @@
             <div class="nearby-header">
                 <h3 id="recommended-recipes-title">新着レシピ</h3>
             </div>
-
+            {% if is_restaurant %}<p>店舗アカウントでは新着レシピを利用できません。</p>{% endif %}
             {% if recent_recipes %}
             <div class="recipe-cards">
                 {% for recipe in recent_recipes %}
                 <article class="recipe-card">
-                    <a class="recipe-card-image" href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">
+                    <a class="recipe-card-image{% if is_restaurant %} auth-disabled-control{% endif %}" {% if is_restaurant %}role="link" aria-disabled="true" tabindex="-1" title="店舗アカウントでは利用できません"{% else %}href="{{ url_for('recipes.recipe_detail', recipe_id=recipe.id) }}"{% endif %}>
                         {% if recipe.main_photo %}
                         <img src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy">
                         {% else %}<span>写真なし</span>{% endif %}
                     </a>
                     <div class="recipe-card-info">
-                        <h4><a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
+                        <h4><a {% if is_restaurant %}role="link" aria-disabled="true" tabindex="-1" class="auth-disabled-control" title="店舗アカウントでは利用できません"{% else %}href="{{ url_for('recipes.recipe_detail', recipe_id=recipe.id) }}"{% endif %}>{{ recipe.recipe_name }}</a></h4>
                     </div>
                 </article>
                 {% endfor %}

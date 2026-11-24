@@ -4,3 +4,4 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+14-allergens-0.3b/

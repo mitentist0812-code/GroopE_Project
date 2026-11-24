@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask
 from flask_migrate import Migrate
 
@@ -6,6 +8,7 @@ from apps.extensions import db
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    app.logger.setLevel(logging.INFO)
     app.config.from_mapping(
         SECRET_KEY="your-secret-key",
         SQLALCHEMY_DATABASE_URI="sqlite:///groope.db",

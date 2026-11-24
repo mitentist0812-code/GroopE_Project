@@ -2,10 +2,12 @@ from flask import Blueprint, current_app, flash, make_response, redirect, render
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
+from apps.allergens import AllergenModelUnavailable, analyze_allergens
 from apps.auth.models import Account
 from apps.extensions import db
+from apps.review_utils import current_reviewer, load_reviews, save_review_form
 
-from .models import Recipe_list, RecipePhoto
+from .models import RecipeFavorite, Recipe_list, RecipePhoto
 
 recipes = Blueprint("recipes", __name__, template_folder="templates")
 MAX_PHOTO_BYTES = 300 * 1024
@@ -40,6 +42,8 @@ def post_recipe():
         account = Account.query.filter_by(email=email).first()
         if not account:
             return render_template("recipes/post_recipe.html", error="アカウントを確認できません。再度ログインしてください。"), 403
+        if account.account_type != "user":
+            return render_template("recipes/post_recipe.html", error="店舗アカウントではレシピを投稿できません。"), 403
 
         title = request.form.get("title", "").strip()
         names = request.form.getlist("ingredient_name[]")
@@ -98,13 +102,8 @@ def recipe_photo(photo_id):
     return response
 
 
-@recipes.get("/detail")
-def recipe_detail():
-    return render_template("recipes/recipe_detail.html")
-
-
 @recipes.get("/<int:recipe_id>")
-def recipe_entry(recipe_id):
+def recipe_detail(recipe_id):
     recipe = db.first_or_404(
         db.select(Recipe_list).options(
             selectinload(Recipe_list.photos).load_only(
@@ -112,4 +111,61 @@ def recipe_entry(recipe_id):
             )
         ).where(Recipe_list.id == recipe_id)
     )
-    return render_template("recipes/recipe_entry.html", recipe=recipe)
+    reviewer = current_reviewer()
+    is_favorite = bool(
+        reviewer
+        and RecipeFavorite.query.filter_by(
+            account_id=reviewer.id,
+            recipe_id=recipe.id,
+        ).first()
+    )
+    reviews, average_rating, own_review = load_reviews(
+        recipe_id=recipe.id,
+        reviewer=reviewer,
+        sort=request.args.get("sort", "newest"),
+    )
+    recipe_text = "\n".join(
+        text for text in (
+            recipe.recipe_name,
+            recipe.ingredients,
+            recipe.description,
+        )
+        if text
+    )
+    allergen_model_error = False
+    try:
+        possible_allergens = analyze_allergens([recipe_text])[0]
+    except AllergenModelUnavailable:
+        current_app.logger.exception("レシピのアレルゲン候補判定に失敗しました")
+        possible_allergens = []
+        allergen_model_error = True
+
+    return render_template(
+        "recipes/recipe_detail.html",
+        recipe=recipe,
+        is_favorite=is_favorite,
+        reviews=reviews,
+        average_rating=average_rating,
+        own_review=own_review,
+        reviewer=reviewer,
+        review_sort=request.args.get("sort", "newest"),
+        possible_allergens=possible_allergens,
+        allergen_model_error=allergen_model_error,
+    )
+
+
+@recipes.post("/<int:recipe_id>/reviews")
+def submit_recipe_review(recipe_id):
+    recipe = db.get_or_404(Recipe_list, recipe_id)
+    email = session.get("email")
+    account = Account.query.filter_by(email=email).first() if email else None
+    error = save_review_form(
+        account,
+        request.form,
+        recipe_id=recipe.id,
+    )
+    if error:
+        flash(error, "error")
+    else:
+        flash("レビューを投稿しました。", "success")
+    return redirect(url_for("recipes.recipe_detail", recipe_id=recipe.id))

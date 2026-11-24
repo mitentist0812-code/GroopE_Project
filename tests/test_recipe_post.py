@@ -3,6 +3,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from flask_migrate import upgrade
 
@@ -46,7 +47,8 @@ class RecipePostTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session["email"] = email
 
-    def test_post_persists_photos_and_appears_in_search_and_own_page(self):
+    @patch("apps.recipes.views.analyze_allergens", return_value=[[]])
+    def test_post_persists_photos_and_appears_in_search_and_own_page(self, analyze):
         self.login()
         response = self.client.post("/recipes/post", data={
             "title": "野菜カレー",
@@ -119,7 +121,8 @@ class RecipePostTests(unittest.TestCase):
             self.assertEqual(Recipe_list.query.count(), 0)
             self.assertEqual(RecipePhoto.query.count(), 0)
 
-    def test_existing_recipe_without_photo_has_detail_and_placeholder(self):
+    @patch("apps.recipes.views.analyze_allergens", return_value=[[]])
+    def test_existing_recipe_without_photo_has_detail_and_placeholder(self, analyze):
         with self.app.app_context():
             recipe = Recipe_list(recipe_name="画像なし", ingredients="水", description="煮る")
             db.session.add(recipe)

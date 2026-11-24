@@ -12,11 +12,11 @@
 				<h3 id="account-settings">アカウント設定</h3>
 				<div class="setting-row">
 					<div><span class="setting-label">ユーザー名</span><p class="setting-description">画面に表示する名前</p></div>
-					<input class="setting-control" type="text" value="ごはん好き" aria-label="ユーザー名">
+					<input class="setting-control" type="text" value="{{ account.name }}" aria-label="ユーザー名">
 				</div>
 				<div class="setting-row">
 					<div><span class="setting-label">メールアドレス</span><p class="setting-description">アカウントに登録するメールアドレスを変更します</p></div>
-					<input class="setting-control" type="email" id="account-email" name="email" placeholder="example@example.com" autocomplete="email" aria-label="新しいメールアドレス">
+					<input class="setting-control" type="email" id="account-email" name="email" placeholder="{{ account.email }}" autocomplete="email" aria-label="新しいメールアドレス">
 				</div>
 			</section>
 

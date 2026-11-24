@@ -63,15 +63,21 @@
             <h3>おすすめのお店</h3>
 
             <div class="result-controls">
-                {% if is_places_search and places %}
-                <div class="result-control">
+                {% if is_places_search and latitude is not none and longitude is not none and not search_error %}
+                <form class="result-control" method="post" action="{{ url_for('home.results') }}">
+                    {% if is_mood_search %}<input type="hidden" name="dishName" value="{{ mood }}">{% else %}<input type="hidden" name="keyword" value="{{ keyword }}">{% endif %}
+                    <input type="hidden" name="budget" value="{{ budget }}">
+                    <input type="hidden" name="genre" value="{{ genre }}">
+                    <input type="hidden" name="latitude" value="{{ latitude }}">
+                    <input type="hidden" name="longitude" value="{{ longitude }}">
                     <label for="distanceFilter">検索距離</label>
-                    <select id="distanceFilter" disabled>
-                        {% for radius in search_radii_km %}
-                        <option value="{{ radius }}"{% if radius == default_search_radius_km %} selected{% endif %}>{{ radius }}km以内</option>
+                    <select id="distanceFilter" name="radius" data-search-mode="{{ 'unlimited' if radius == 'unlimited' else 'local' }}" disabled>
+                        {% for option_radius in search_radii_km %}
+                        <option value="{{ option_radius }}"{% if option_radius == radius %} selected{% endif %}>{{ option_radius }}km以内</option>
                         {% endfor %}
+                        <option value="unlimited"{% if radius == 'unlimited' %} selected{% endif %}>制限なし</option>
                     </select>
-                </div>
+                </form>
                 {% endif %}
                 <div class="result-control">
                     <label for="sortOrder">並び替え</label>
@@ -84,15 +90,21 @@
         </div>
 
         {% if is_places_search %}
-        {% if places_searched %}<p>現在地から直線距離10km以内の検索結果が対象です。距離が不明な店舗は表示されません。</p>{% endif %}
+        {% if places_searched %}
+        {% if radius == 'unlimited' %}<p>国や距離を限定せず検索します。Google検索は各検索語につき最大10件で、すべての店舗を網羅するものではありません。距離が不明な店舗は表示されません。</p>
+        {% else %}<p>現在地から直線距離10km以内の検索結果が対象です。距離が不明な店舗は表示されません。</p>{% endif %}
+        {% endif %}
+        {% if places_searched %}<p>店舗アカウントに登録されたメニュー名も、入力文との部分一致で検索します。</p>{% endif %}
         {% if is_mood_search and places_searched and recommendation %}<p>入力文とAIの検索提案による検索結果を表示します。</p>{% endif %}
         {% if places %}<noscript><p>距離の絞り込みにはJavaScriptが必要です。</p></noscript>{% endif %}
         {% if (keyword or mood) and genre %}<p>ジャンルは入力文による検索語に含めています。検索結果が厳密に絞り込まれるとは限りません。</p>{% endif %}
         {% if budget %}
-        <p>予算は店舗の価格帯による大まかな絞り込みです。実際の料金を保証するものではありません。価格帯が未登録の店舗は表示されない場合があります。</p>
+        <p>Google検索結果は店舗の価格帯で大まかに絞り込みます。登録メニューからの検索結果はメニューの価格が予算以下の店舗を表示します。実際の料金を保証するものではありません。</p>
         {% endif %}
         {% if places_error %}<p role="alert">{{ places_error }}</p>{% endif %}
-        {% if places_searched and not places and not places_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
+        {% if menu_search_error %}<p role="alert">{{ menu_search_error }}</p>{% endif %}
+        {% if menu_location_error %}<p role="alert">一部の店舗は位置情報がないため表示できませんでした。</p>{% endif %}
+        {% if places_searched and not places and not places_error and not menu_search_error and not menu_location_error %}<p>条件に合う店舗が見つかりませんでした。</p>{% endif %}
         {% if places %}<p id="distance-filter-empty" role="status" hidden>選択した距離内に店舗が見つかりませんでした。</p>{% endif %}
         {% endif %}
 
@@ -106,16 +118,31 @@
         <div id="resultList">
             {% if is_places_search %}
             {% for place in places %}
-            <div class="result" data-place-id="{{ place.id }}" data-distance="{{ place.distance_exact }}" data-rating="{{ place.rating if place.rating is not none else '' }}">
+            <div class="result" data-place-id="{{ place.id }}" data-distance="{{ place.distance_exact }}" data-rating="{{ place.get('system_rating') if place.get('system_rating') is not none else (place.get('rating') if place.get('rating') is not none else '') }}">
                 <div class="result-info">
                     <h3>{{ place.name }}</h3>
-                    {% if place.account_registered %}
-                    <p class="registered-store-badge">店舗アカウント連携済み（デモ）</p>
+                    {% if place.get('local_restaurant') %}
+                    <p class="registered-store-badge">店舗アカウント登録（Google未連携）</p>
+                    {% elif place.get('account_registered') %}
+                    <p class="registered-store-badge">店舗アカウント連携済み{% if config.PLACE_LINK_DEMO_MODE %}（デモ）{% endif %}{% if place.get('system_rating') is not none %}（システム評価: {{ place.get('system_rating')|round(1) }}）{% endif %}</p>
                     {% elif session.get("account_type") == "restaurant" and not session.get("place_id") %}
                     <button type="button" class="detail-button place-claim-button" data-place-id="{{ place.id }}" data-place-name="{{ place.name }}">この店舗をアカウントに連携</button>
                     {% endif %}
                     <p>{{ place.address }}</p>
-                    <p>評価：{{ place.rating if place.rating is not none else "情報なし" }}</p>
+                    {% if place.get('matching_menus') %}
+                    <p>一致した登録メニュー：
+                        {% for menu in place.matching_menus %}{{ menu.name }}（{{ menu.price }}円）{% if not loop.last %}、{% endif %}{% endfor %}
+                    </p>
+                    {% endif %}
+                    <p>評価：
+                        {% if place.get('system_rating') is not none %}
+                        {{ place.get('system_rating')|round(1) }} (システム評価・{{ place.get('system_rating_count', 0) }}件)
+                        {% elif place.get('rating') is not none %}
+                        {{ place.get('rating') }} (Google Maps)
+                        {% else %}
+                        情報なし
+                        {% endif %}
+                    </p>
                     <p>距離：{{ "約" ~ place.distance ~ "m" if place.distance is not none else "情報なし" }}</p>
                     <p>価格帯：{{ place.price }}</p>
                     {% for attribution in place.attributions %}
@@ -132,7 +159,7 @@
                 </div>
             </div>
             {% endfor %}
-            {% if places %}
+            {% if has_google_places %}
             <div class="google-maps-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>
             {% endif %}
             {% else %}

@@ -35,6 +35,159 @@
     opacity: 0.55;
 }
 
+body.page-top .recipe-search-fields {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+body.page-top .tab-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+body.page-recipe .review-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+body.page-detail .review-summary,
+body.page-recipe .review-summary {
+    margin: 0 0 18px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+body.page-detail .review-sort-form,
+body.page-recipe .review-sort-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+body.page-detail .review-form,
+body.page-recipe .review-form {
+    display: grid;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+}
+
+body.page-detail .review-form h4,
+body.page-recipe .review-form h4 {
+    margin: 0 0 4px;
+}
+
+body.page-detail .review-form label,
+body.page-recipe .review-form label {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+body.page-detail .review-star-rating,
+body.page-recipe .review-star-rating {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+body.page-detail .review-star-rating legend,
+body.page-recipe .review-star-rating legend {
+    margin-bottom: 4px;
+    padding: 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+body.page-detail .review-star-options,
+body.page-recipe .review-star-options {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    width: fit-content;
+}
+
+body.page-detail .review-star-input,
+body.page-recipe .review-star-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+body.page-detail .review-form .review-star,
+body.page-recipe .review-form .review-star {
+    display: block;
+    padding: 0 2px;
+    color: #c8c8c8;
+    cursor: pointer;
+    font-size: 30px;
+    font-weight: normal;
+    line-height: 1;
+}
+
+body.page-detail .review-star::before,
+body.page-recipe .review-star::before {
+    content: "☆";
+}
+
+body.page-detail .review-star:hover::before,
+body.page-detail .review-star:hover ~ .review-star::before,
+body.page-detail .review-star-input:checked ~ .review-star::before,
+body.page-recipe .review-star:hover::before,
+body.page-recipe .review-star:hover ~ .review-star::before,
+body.page-recipe .review-star-input:checked ~ .review-star::before {
+    color: #f0a500;
+    content: "★";
+}
+
+body.page-detail .review-star-input:focus-visible + .review-star,
+body.page-recipe .review-star-input:focus-visible + .review-star {
+    outline: 2px solid var(--accent-dark);
+    outline-offset: 3px;
+}
+
+body.page-detail .review-form select,
+body.page-detail .review-form textarea,
+body.page-recipe .review-form select,
+body.page-recipe .review-form textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--ink);
+    background: var(--surface);
+    font: inherit;
+}
+
+body.page-detail .review-form textarea,
+body.page-recipe .review-form textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+body.page-detail .review-form .review-button,
+body.page-recipe .review-form .review-button {
+    justify-self: start;
+    margin-top: 4px;
+}
+
+body.page-detail .review-login-prompt,
+body.page-recipe .review-login-prompt {
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
 #header .account {
     display: flex;
     align-items: center;
@@ -138,6 +291,27 @@ body.page-detail .info-item { padding: 15px 0; border-bottom: 1px solid var(--li
 body.page-detail .info-item:nth-last-child(-n + 2) { border-bottom: 0; }
 body.page-detail .info-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
 body.page-detail .info-value { font-size: 14px; line-height: 1.6; }
+body.page-detail .allergen-panel,
+body.page-recipe .allergen-panel {
+    margin: 20px 0;
+    padding: 18px 22px;
+    border: 1px solid var(--line);
+    border-left: 5px solid #b7791f;
+    border-radius: 6px;
+    background: #fff8e8;
+}
+body.page-detail .allergen-panel h3,
+body.page-recipe .allergen-panel h3 { margin: 0 0 10px; font-size: 18px; }
+body.page-detail .allergen-panel p,
+body.page-recipe .allergen-panel p { margin: 8px 0 0; line-height: 1.6; }
+body.page-detail .allergen-panel ul,
+body.page-recipe .allergen-panel ul { margin: 8px 0; }
+body.page-detail .allergen-warning,
+body.page-recipe .allergen-warning { border-left-color: #b42318; background: #fff1f0; }
+body.page-detail .allergen-info,
+body.page-recipe .allergen-info { border-left-color: #b7791f; }
+body.page-detail .allergen-caveat,
+body.page-recipe .allergen-caveat { color: var(--muted); font-size: 13px; }
 body.page-detail .menu-section { padding: 0 28px 28px; }
 body.page-detail .menu-section h3 { margin: 0 0 14px; font-size: 18px; }
 body.page-detail .menu-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -544,11 +718,14 @@ body.page-favorite .detail-link {
             padding: 10px 15px;
             color: #fff;
             background: var(--accent);
+            border: 0;
             border-radius: 6px;
             text-decoration: none;
             white-space: nowrap;
+            font-family: inherit;
             font-size: 13px;
             font-weight: bold;
+            cursor: pointer;
             transition: background-color 0.2s ease;
         }
 body.page-favorite .detail-link:hover {
@@ -4082,6 +4259,7 @@ body.page-calorie .calorie-layout {
     display: grid;
     width: 100%;
     grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+    align-items: start;
     gap: 24px;
 }
 
@@ -4129,6 +4307,10 @@ body.page-calorie .photo-picker:hover {
     background: #fff3ed;
 }
 
+body.page-calorie .photo-picker[hidden] {
+    display: none;
+}
+
 body.page-calorie .photo-picker:focus-within {
     outline: 3px solid rgba(217, 93, 57, 0.35);
     outline-offset: 3px;
@@ -4169,7 +4351,6 @@ body.page-calorie .calorie-error {
 }
 
 body.page-calorie .photo-preview {
-    margin-top: 18px;
     padding: 12px;
     background: #faf9f7;
     border: 1px solid var(--line);
@@ -4189,6 +4370,17 @@ body.page-calorie .photo-preview p {
     overflow-wrap: anywhere;
     color: var(--muted);
     font-size: 13px;
+}
+
+body.page-calorie #change-photo {
+    margin-top: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+body.page-calorie #change-photo:disabled {
+    cursor: not-allowed;
 }
 
 body.page-calorie .estimate-button {
@@ -4221,26 +4413,99 @@ body.page-calorie .privacy-note {
 }
 
 body.page-calorie .result-placeholder {
-    display: flex;
-    min-height: 210px;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 10px;
-    padding: 24px;
     color: var(--muted);
-    background: #faf9f7;
-    border-radius: 8px;
-    text-align: center;
     line-height: 1.7;
 }
 
-body.page-calorie .result-placeholder p {
-    margin: 0;
+body.page-calorie #ingredient-details summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 18px;
+    color: var(--accent-dark);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    list-style: none;
 }
 
-body.page-calorie .result-icon {
-    font-size: 40px;
+body.page-calorie #ingredient-details summary::-webkit-details-marker {
+    display: none;
+}
+
+body.page-calorie #ingredient-details summary:hover {
+    background: #fff3ee;
+}
+
+body.page-calorie #ingredient-details summary:focus-visible {
+    outline: 3px solid rgba(217, 93, 57, 0.35);
+    outline-offset: 3px;
+}
+
+body.page-calorie .ingredient-details-open,
+body.page-calorie #ingredient-details[open] .ingredient-details-closed {
+    display: none;
+}
+
+body.page-calorie #ingredient-details[open] .ingredient-details-open {
+    display: inline;
+}
+
+body.page-calorie #edit-ingredients {
+    display: block;
+    margin-top: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+body.page-calorie .calorie-ingredient {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+body.page-calorie .ingredient-reference {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+body.page-calorie .ingredient-editor:not([hidden]) {
+    display: grid;
+    gap: 8px;
+}
+
+body.page-calorie .calorie-ingredient label {
+    display: grid;
+    gap: 4px;
+}
+
+body.page-calorie .calorie-ingredient input,
+body.page-calorie .calorie-ingredient select {
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+    font: inherit;
+}
+
+body.page-calorie .calorie-ingredient button,
+body.page-calorie #add-ingredient {
+    padding: 8px 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+body.page-calorie .food-search-status {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
 }
 
 body.page-calorie .calorie-result-note {
@@ -4909,6 +5174,14 @@ body.page-history .history-panel[hidden] {
 
 body.page-history .history-list {
     gap: 18px;
+}
+
+body.page-history .google-maps-attribution {
+    margin-top: 16px;
+}
+
+body.page-history .google-maps-attribution img {
+    width: 120px;
 }
 
 body.page-history .history-empty {

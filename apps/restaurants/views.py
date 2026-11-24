@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import math
 import re
 import secrets
 from datetime import datetime, timedelta
@@ -8,21 +9,28 @@ from urllib.error import URLError
 from flask import (
     Blueprint,
     current_app,
+    flash,
     jsonify,
     make_response,
+    redirect,
     render_template,
     request,
     session,
+    url_for,
 )
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from apps.allergens import AllergenModelUnavailable, analyze_allergens
 from apps.auth.models import Account
 from apps.extensions import db
 from apps.home.places import PlacesAPIError, photo_url, place_details
+from apps.review_utils import current_reviewer, load_reviews, save_review_form
 
-from .models import RestaurantMenu, RestaurantPlaceClaim
+from .local import local_restaurant
+from .models import PlaceFavorite, PlaceViewHistory, Reservation, RestaurantLocation, RestaurantMenu, RestaurantPlaceClaim
 
 restaurants = Blueprint("restaurants", __name__, template_folder="templates")
+SAMPLE_RESTAURANT_ID = "sample-restaurant"
 
 
 def _restaurant_account():
@@ -57,6 +65,19 @@ def _place_claim_code_hash(code):
     return hmac.new(key, code.encode("ascii"), hashlib.sha256).hexdigest()
 
 
+def _record_place_view(reviewer, place_id):
+    if reviewer is None:
+        return False
+    try:
+        db.session.add(PlaceViewHistory(account_id=reviewer.id, place_id=place_id))
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("店舗の閲覧履歴の保存に失敗しました")
+        return True
+    return False
+
+
 @restaurants.get("/")
 def restaurant():
     return render_template("restaurants/restaurant.html")
@@ -64,36 +85,195 @@ def restaurant():
 
 @restaurants.get("/detail")
 def restaurant_detail():
-    return render_template("restaurants/restaurant_detail.html")
+    reviewer = current_reviewer()
+    is_favorite = bool(
+        reviewer
+        and PlaceFavorite.query.filter_by(
+            account_id=reviewer.id,
+            place_id=SAMPLE_RESTAURANT_ID,
+        ).first()
+    )
+    reviews, average_rating, own_review = load_reviews(
+        place_id=SAMPLE_RESTAURANT_ID,
+        reviewer=reviewer,
+        sort=request.args.get("sort", "newest"),
+    )
+    history_error = _record_place_view(reviewer, SAMPLE_RESTAURANT_ID)
+    response = make_response(render_template(
+        "restaurants/restaurant_detail.html",
+        reviews=reviews,
+        average_rating=average_rating,
+        own_review=own_review,
+        reviewer=reviewer,
+        is_favorite=is_favorite,
+        history_error=history_error,
+        review_sort=request.args.get("sort", "newest"),
+    ))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@restaurants.post("/detail/reviews")
+def submit_sample_restaurant_review():
+    return _submit_restaurant_review(
+        SAMPLE_RESTAURANT_ID,
+        "restaurants.restaurant_detail",
+    )
 
 
 @restaurants.get("/detail/<place_id>")
 def place_detail(place_id):
-    try:
-        place = place_details(place_id)
-    except PlacesAPIError as error:
-        current_app.logger.error("Places detail API error: HTTP %s, reasons: %s", error.status_code, ", ".join(error.reasons) or "unknown")
-        return render_template("restaurants/restaurant_detail.html", place_error="店舗情報を取得できませんでした。Google Places APIの設定を確認してください。", real_place=True), 503
-    except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
-        current_app.logger.exception("店舗詳細の取得に失敗しました")
-        return render_template("restaurants/restaurant_detail.html", place_error="店舗情報を取得できませんでした。時間をおいて再度お試しください。", real_place=True), 503
+    local_account = None
+    if place_id.startswith("local-store-"):
+        try:
+            local_account = local_restaurant(place_id)
+        except SQLAlchemyError:
+            db.session.rollback()
+            current_app.logger.exception("店舗詳細の取得に失敗しました")
+            return "店舗情報を取得できませんでした。", 500
+        if local_account is None:
+            return "店舗が見つかりません。", 404
+        place = {
+            "id": place_id, "name": local_account.name, "address": local_account.address,
+            "rating": None, "price": "不明", "phone": "",
+            "hours": [], "website": "", "url": "", "attributions": [], "photo": None,
+        }
+    else:
+        try:
+            place = place_details(place_id)
+        except PlacesAPIError as error:
+            current_app.logger.error(
+                "Places detail API error: HTTP %s, reasons: %s",
+                error.status_code,
+                ", ".join(error.reasons) or "unknown",
+            )
+            return render_template(
+                "restaurants/restaurant_detail.html",
+                place_error="店舗情報を取得できませんでした。Google Places APIの設定を確認してください。",
+                real_place=True,
+            ), 503
+        except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
+            current_app.logger.exception("店舗詳細の取得に失敗しました")
+            return render_template(
+                "restaurants/restaurant_detail.html",
+                place_error="店舗情報を取得できませんでした。時間をおいて再度お試しください。",
+                real_place=True,
+            ), 503
     photo_error = None
     image_url = None
     if place["photo"]:
         try:
             image_url = photo_url(place["photo"])
         except PlacesAPIError as error:
-            current_app.logger.error("Places photo API error: HTTP %s, reasons: %s", error.status_code, ", ".join(error.reasons) or "unknown")
+            current_app.logger.error(
+                "Places photo API error: HTTP %s, reasons: %s",
+                error.status_code,
+                ", ".join(error.reasons) or "unknown",
+            )
             photo_error = "店舗写真を取得できませんでした。"
         except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
             current_app.logger.exception("店舗写真の取得に失敗しました")
             photo_error = "店舗写真を取得できませんでした。"
+
+    store_menu_matches = []
+    store_menus_available = False
+    store_menu_error = False
+    allergen_model_error = False
+    restaurant_account = None
+    try:
+        restaurant_account = local_account or Account.query.filter_by(
+            place_id=place_id, account_type="restaurant",
+        ).first()
+        store_menus = (
+            RestaurantMenu.query.filter_by(
+                restaurant_id=restaurant_account.id,
+            ).order_by(RestaurantMenu.id).all()
+            if restaurant_account else []
+        )
+        store_menus_available = bool(store_menus)
+        if store_menus:
+            predictions = analyze_allergens([menu.name for menu in store_menus])
+            store_menu_matches = [
+                {
+                    "name": menu.name,
+                    "possible_allergens": possible_allergens,
+                }
+                for menu, possible_allergens in zip(store_menus, predictions)
+                if possible_allergens
+            ]
+    except SQLAlchemyError:
+        current_app.logger.exception(
+            "店舗メニューのアレルゲン情報を取得できませんでした"
+        )
+        db.session.rollback()
+        store_menu_error = True
+    except AllergenModelUnavailable:
+        current_app.logger.exception("店舗メニューのアレルゲン候補判定に失敗しました")
+        allergen_model_error = True
+
+    reviewer = current_reviewer()
+    is_favorite = bool(
+        reviewer
+        and PlaceFavorite.query.filter_by(
+            account_id=reviewer.id,
+            place_id=place_id,
+        ).first()
+    )
+    reviews, average_rating, own_review = load_reviews(
+        place_id=place_id,
+        reviewer=reviewer,
+        sort=request.args.get("sort", "newest"),
+    )
+    history_error = _record_place_view(reviewer, place_id)
     response = make_response(render_template(
         "restaurants/restaurant_detail.html", place=place, real_place=True,
         image_url=image_url, photo_error=photo_error,
+        reviews=reviews,
+        average_rating=average_rating,
+        own_review=own_review,
+        reviewer=reviewer,
+        is_favorite=is_favorite,
+        history_error=history_error,
+        review_sort=request.args.get("sort", "newest"),
+        place_id=place_id,
+        store_menu_matches=store_menu_matches,
+        store_menus_available=store_menus_available,
+        store_menu_error=store_menu_error,
+        allergen_model_error=allergen_model_error,
+        local_place=local_account is not None,
+        reservation_available=(
+            restaurant_account is not None and not store_menu_error
+            and (local_account is None or current_app.config.get("PLACE_LINK_DEMO_MODE"))
+        ),
     ))
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@restaurants.post("/detail/<place_id>/reviews")
+def submit_restaurant_review(place_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", place_id):
+        return jsonify(error="Place IDが正しくありません。"), 400
+    return _submit_restaurant_review(
+        place_id,
+        "restaurants.place_detail",
+        place_id=place_id,
+    )
+
+
+def _submit_restaurant_review(target_place_id, endpoint, **endpoint_values):
+    email = session.get("email")
+    account = Account.query.filter_by(email=email).first() if email else None
+    error = save_review_form(
+        account,
+        request.form,
+        place_id=target_place_id,
+    )
+    if error:
+        flash(error, "error")
+    else:
+        flash("レビューを投稿しました。", "success")
+    return redirect(url_for(endpoint, **endpoint_values))
 
 
 @restaurants.get("/menu")
@@ -316,9 +496,220 @@ def verify_place_claim():
 
 @restaurants.get("/reservations")
 def reservation_management():
-    return render_template("restaurants/reservation_management.html")
+    account, error = _restaurant_account()
+    if error:
+        return error
+    try:
+        reservations = (
+            Reservation.query.filter_by(restaurant_id=account.id)
+            .order_by(Reservation.reserved_at.desc(), Reservation.id.desc())
+            .all()
+        )
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("予約一覧の取得に失敗しました")
+        return "予約一覧を取得できませんでした。", 500
+    response = make_response(render_template(
+        "restaurants/reservation_management.html",
+        reservations=reservations,
+        csrf_token=_reservation_csrf_token(),
+        now=datetime.now(),
+    ))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
-@restaurants.get("/reservations/new")
-def reservation_form():
-    return render_template("restaurants/reservation_form.html")
+def _reservation_csrf_token():
+    if "reservation_csrf" not in session:
+        session["reservation_csrf"] = secrets.token_urlsafe(32)
+    return session["reservation_csrf"]
+
+
+def _valid_reservation_csrf():
+    token = request.form.get("csrf_token", "")
+    expected = session.get("reservation_csrf")
+    return (
+        isinstance(expected, str)
+        and re.fullmatch(r"[A-Za-z0-9_-]+", token) is not None
+        and hmac.compare_digest(token, expected)
+    )
+
+
+@restaurants.route("/location", methods=["GET", "POST"])
+def restaurant_location():
+    account, error_response = _restaurant_account()
+    if error_response:
+        return error_response
+    try:
+        location = db.session.get(RestaurantLocation, account.id)
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("店舗位置の取得に失敗しました")
+        return "店舗位置を取得できませんでした。", 500
+    error = None
+    status = 200
+    if request.method == "POST":
+        if not _valid_reservation_csrf():
+            return "フォームの有効期限が切れました。もう一度お試しください。", 400
+        try:
+            latitude = float(request.form.get("latitude", ""))
+            longitude = float(request.form.get("longitude", ""))
+            if not math.isfinite(latitude) or not math.isfinite(longitude) or abs(latitude) > 90 or abs(longitude) > 180:
+                raise ValueError("Invalid coordinates")
+        except ValueError:
+            error = "緯度は-90〜90、経度は-180〜180の数値で入力してください。"
+            status = 400
+        else:
+            if location is None:
+                location = RestaurantLocation(restaurant_id=account.id)
+                db.session.add(location)
+            location.latitude = latitude
+            location.longitude = longitude
+            try:
+                db.session.commit()
+            except SQLAlchemyError:
+                db.session.rollback()
+                current_app.logger.exception("店舗位置の保存に失敗しました")
+                return "店舗位置を保存できませんでした。", 500
+            flash("店舗の位置を保存しました。", "success")
+            return redirect(url_for("restaurants.restaurant_location"))
+    response = make_response(render_template(
+        "restaurants/restaurant_location.html", location=location,
+        csrf_token=_reservation_csrf_token(), error=error,
+    ), status)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@restaurants.route("/reservations/<place_id>/new", methods=["GET", "POST"])
+def reservation_form(place_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", place_id):
+        return "店舗IDが正しくありません。", 400
+    email = session.get("email")
+    if not email:
+        return redirect(url_for("auth.login"))
+    try:
+        user = Account.query.filter_by(email=email, account_type="user").first()
+        if place_id.startswith("local-store-"):
+            restaurant_account = local_restaurant(place_id) if current_app.config.get("PLACE_LINK_DEMO_MODE") else None
+        else:
+            restaurant_account = Account.query.filter_by(
+                place_id=place_id, account_type="restaurant",
+            ).first()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("予約のアカウント確認に失敗しました")
+        return "予約情報を確認できませんでした。", 500
+    if user is None:
+        return "予約できるのは一般ユーザーのみです。", 403
+    if restaurant_account is None:
+        return "この店舗は予約に対応していません。", 404
+
+    error = None
+    status_code = 200
+    submission_key = secrets.token_hex(32)
+    if request.method == "POST":
+        if not _valid_reservation_csrf():
+            return "予約フォームの有効期限が切れました。もう一度お試しください。", 400
+        submission_key = request.form.get("submission_key", "")
+        name = request.form.get("name", "").strip()
+        guests = request.form.get("guests", "")
+        date_text = request.form.get("datetime", "")
+        if not re.fullmatch(r"[0-9a-f]{64}", submission_key):
+            return "予約フォームが正しくありません。", 400
+        try:
+            existing = Reservation.query.filter_by(submission_key=submission_key).first()
+        except SQLAlchemyError:
+            db.session.rollback()
+            current_app.logger.exception("予約申請の確認に失敗しました")
+            return "予約申請を確認できませんでした。", 500
+        if existing:
+            if existing.user_id != user.id or existing.restaurant_id != restaurant_account.id:
+                return "予約フォームが正しくありません。", 400
+            return redirect(url_for("users.mypage"))
+        if not name or len(name) > 100 or not re.fullmatch(r"[\u30A0-\u30FF\u31F0-\u31FF\u3000\s]+", name):
+            error = "お名前はカタカナで100文字以内にしてください。"
+        elif not re.fullmatch(r"(?:[1-9]|1[0-9]|20)", guests):
+            error = "人数は1～20名で入力してください。"
+        elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", date_text):
+            error = "予約日時を正しく入力してください。"
+        else:
+            try:
+                reserved_at = datetime.strptime(date_text, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                error = "予約日時を正しく入力してください。"
+            else:
+                if reserved_at <= datetime.now():
+                    error = "現在より後の予約日時を入力してください。"
+        if error:
+            status_code = 400
+        else:
+            db.session.add(Reservation(
+                user_id=user.id,
+                restaurant_id=restaurant_account.id,
+                name=name,
+                guests=int(guests),
+                reserved_at=reserved_at,
+                submission_key=submission_key,
+                is_demo=bool(current_app.config.get("PLACE_LINK_DEMO_MODE")),
+            ))
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                existing = Reservation.query.filter_by(submission_key=submission_key).first()
+                if existing and existing.user_id == user.id and existing.restaurant_id == restaurant_account.id:
+                    return redirect(url_for("users.mypage"))
+                current_app.logger.exception("予約申請の保存に失敗しました")
+                return "予約申請を保存できませんでした。", 500
+            except SQLAlchemyError:
+                db.session.rollback()
+                current_app.logger.exception("予約申請の保存に失敗しました")
+                return "予約申請を保存できませんでした。", 500
+            flash("予約を申請しました。店舗の承認後に確定します。", "success")
+            return redirect(url_for("users.mypage"))
+
+    response = make_response(render_template(
+        "restaurants/reservation_form.html",
+        restaurant_account=restaurant_account,
+        place_id=place_id,
+        csrf_token=_reservation_csrf_token(),
+        submission_key=submission_key,
+        error=error,
+        local_place=place_id.startswith("local-store-"),
+    ), status_code)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@restaurants.post("/reservations/<int:reservation_id>/status")
+def update_reservation_status(reservation_id):
+    account, error = _restaurant_account()
+    if error:
+        return error
+    if not _valid_reservation_csrf():
+        return "予約操作の有効期限が切れました。もう一度お試しください。", 400
+    action = request.form.get("action")
+    if action not in ("confirm", "cancel"):
+        return "予約操作が正しくありません。", 400
+    allowed = ("pending",) if action == "confirm" else ("pending", "confirmed")
+    new_status = "confirmed" if action == "confirm" else "cancelled"
+    try:
+        statement = db.update(Reservation).where(
+            Reservation.id == reservation_id,
+            Reservation.restaurant_id == account.id,
+            Reservation.status.in_(allowed),
+        )
+        if action == "confirm":
+            statement = statement.where(Reservation.reserved_at > datetime.now())
+        result = db.session.execute(statement.values(status=new_status))
+        if result.rowcount != 1:
+            db.session.rollback()
+            return "予約が見つからないか、既に変更されたか、予約日時が過ぎています。", 404
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("予約状態の更新に失敗しました")
+        return "予約状態を更新できませんでした。", 500
+    flash("予約を承認しました。" if action == "confirm" else "予約をキャンセルしました。", "success")
+    return redirect(url_for("restaurants.reservation_management"))

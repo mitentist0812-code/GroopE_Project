@@ -11,13 +11,16 @@
       <h2>マイページ</h2>
       <p>お気に入りや閲覧履歴など、自分の情報を確認できます。</p>
     </div>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <p role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+    {% endfor %}
 
     <section class="mypage-profile" aria-labelledby="mypage-profile-title">
-      <div class="mypage-avatar" aria-hidden="true">ご</div>
+      <div class="mypage-avatar" aria-hidden="true">{{ account.name[:1] }}</div>
       <div class="mypage-profile-info">
-        <h3 id="mypage-profile-title">ごはん好き</h3>
-        <p>一飯一会ユーザー</p>
-        <p>2026年8月1日から利用しています</p>
+        <h3 id="mypage-profile-title">{{ account.name }}</h3>
+        <p>{{ account.email }}</p>
+        <p>{{ account.created_at.strftime("%Y年%m月%d日") }}から利用しています</p>
       </div>
       <a href="{{ url_for('users.setting') }}" class="mypage-profile-link">プロフィール・設定</a>
     </section>
@@ -44,9 +47,21 @@
     <section class="mypage-reservations" aria-labelledby="mypage-reservations-title">
       <div>
         <h3 id="mypage-reservations-title">予約</h3>
-        <p>利用者向けの予約確認機能は、現在準備中です。</p>
+        {% if reservations %}
+        <ul>
+          {% for reservation in reservations %}
+          <li>
+            <strong>{{ reservation.restaurant.name }}</strong>：
+            {% if reservation.is_demo %}デモ予約（実際の予約ではありません）・{% endif %}
+            {{ reservation.reserved_at.strftime('%Y年%m月%d日 %H:%M') }}・{{ reservation.guests }}名・
+            {{ {'pending': '承認待ち（未確定）', 'confirmed': '予約確定', 'cancelled': '店舗によりキャンセル'}[reservation.status] }}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>予約はありません。</p>
+        {% endif %}
       </div>
-      <span class="mypage-coming-soon">準備中</span>
     </section>
 
     <section class="mypage-recipes" aria-labelledby="mypage-recipes-title">
@@ -57,7 +72,6 @@
         </div>
         <a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %}>レシピを投稿する</a>
       </div>
-      {% for message in get_flashed_messages() %}<p role="status">{{ message }}</p>{% endfor %}
       {% if not posted_recipes %}
       <p id="mypage-recipes-message" class="mypage-recipes-message" aria-live="polite">投稿したレシピはまだありません。</p>
       {% endif %}
@@ -65,10 +79,10 @@
         {% for recipe in posted_recipes %}
         <article class="mypage-recipe-card">
           {% if recipe.main_photo %}
-          <a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}"><img class="mypage-recipe-image" src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy"></a>
+          <a href="{{ url_for('recipes.recipe_detail', recipe_id=recipe.id) }}"><img class="mypage-recipe-image" src="{{ url_for('recipes.recipe_photo', photo_id=recipe.main_photo.id) }}" alt="{{ recipe.recipe_name }}の料理写真" loading="lazy"></a>
           {% endif %}
           <div class="mypage-recipe-content">
-            <h4><a href="{{ url_for('recipes.recipe_entry', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
+            <h4><a href="{{ url_for('recipes.recipe_detail', recipe_id=recipe.id) }}">{{ recipe.recipe_name }}</a></h4>
             <time class="mypage-recipe-date" datetime="{{ recipe.created_at.isoformat() if recipe.created_at else '' }}">{{ '投稿日：' ~ recipe.created_at.strftime('%Y/%m/%d') if recipe.created_at else '投稿日不明' }}</time>
             <p class="mypage-recipe-summary recipe-text">材料：{{ recipe.ingredients }}</p>
             {% if recipe.steps %}

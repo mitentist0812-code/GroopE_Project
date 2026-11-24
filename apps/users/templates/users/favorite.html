@@ -3,107 +3,81 @@
 {% block title %}お気に入り - 一飯一会{% endblock %}
 {% block body_class %}page-favorite{% endblock %}
 {% block active_nav %}top{% endblock %}
-{% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
 <div class="favorite-heading">
-            <div>
-                <h2>お気に入り</h2>
-                <p>気になるお店や、また作りたいレシピをまとめてチェック。</p>
-            </div>
-            <a href="{{ url_for('home.top') }}" class="favorite-back-link">ホームへ戻る</a>
+    <div>
+        <h2>お気に入り</h2>
+        <p>気になるお店や、また作りたいレシピをまとめてチェック。</p>
+    </div>
+    <a href="{{ url_for('home.top') }}" class="favorite-back-link">ホームへ戻る</a>
+</div>
+
+<div class="favorite-tabs" role="tablist" aria-label="お気に入りの種類">
+    <button type="button" id="favorite-shops-tab" class="favorite-tab active" role="tab" aria-selected="true" aria-controls="favorite-shops" data-target="favorite-shops">店舗</button>
+    <button type="button" id="favorite-recipes-tab" class="favorite-tab" role="tab" aria-selected="false" aria-controls="favorite-recipes" data-target="favorite-recipes">レシピ</button>
+</div>
+
+{% if place_lookup_error %}
+<p role="alert">一部の店舗情報を取得できませんでした。時間をおいて再度ご確認ください。</p>
+{% endif %}
+<section id="favorite-shops" class="favorite-list favorite-panel active" role="tabpanel" aria-labelledby="favorite-shops-tab">
+    {% for place in saved_places %}
+    <article class="favorite-card">
+        <div class="favorite-card-icon" aria-hidden="true">🍽️</div>
+        <div class="favorite-card-info">
+            <span class="favorite-category">店舗</span>
+            <h3>{{ place.name }}</h3>
+            <p class="favorite-location">{{ place.address }}</p>
         </div>
+        {% if place.id == "sample-restaurant" %}
+        <a class="detail-link" href="{{ url_for('restaurants.restaurant_detail') }}">詳細を見る</a>
+        {% else %}
+        <a class="detail-link" href="{{ url_for('restaurants.place_detail', place_id=place.id) }}">詳細を見る</a>
+        {% endif %}
+        <form method="post" action="{{ url_for('users.toggle_place_favorite', place_id=place.id) }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="return_to" value="favorites">
+            <button type="submit" class="detail-link">解除</button>
+        </form>
+    </article>
+    {% else %}
+    <p class="favorite-empty">お気に入りの店舗はまだありません。</p>
+    {% endfor %}
+</section>
 
-        <div class="favorite-tabs" role="tablist" aria-label="お気に入りの種類">
-            <button type="button" id="favorite-shops-tab" class="favorite-tab active" role="tab" aria-selected="true" aria-controls="favorite-shops" data-target="favorite-shops">店舗</button>
-            <button type="button" id="favorite-recipes-tab" class="favorite-tab" role="tab" aria-selected="false" aria-controls="favorite-recipes" data-target="favorite-recipes">レシピ</button>
+<section id="favorite-recipes" class="favorite-list favorite-panel" role="tabpanel" aria-labelledby="favorite-recipes-tab" hidden>
+    {% for favorite in recipe_favorites %}
+    {% set recipe = favorite.recipe %}
+    <article class="favorite-card">
+        <div class="favorite-card-icon recipe-favorite-icon" aria-hidden="true">🍚</div>
+        <div class="favorite-card-info">
+            <span class="favorite-category">レシピ</span>
+            <h3>{{ recipe.recipe_name }}</h3>
         </div>
-
-        <section id="favorite-shops" class="favorite-list favorite-panel active" role="tabpanel" aria-labelledby="favorite-shops-tab">
-            <article class="favorite-card">
-                <div class="favorite-card-icon" aria-hidden="true">🍜</div>
-                <div class="favorite-card-info">
-                    <span class="favorite-category">ラーメン</span>
-                    <h3>元気ラーメン</h3>
-                    <p class="favorite-location">東京都渋谷区</p>
-                </div>
-                <a class="detail-link" href="{{ url_for('restaurants.restaurant_detail') }}">詳細を見る</a>
-            </article>
-
-            <article class="favorite-card">
-                <div class="favorite-card-icon" aria-hidden="true">🍚</div>
-                <div class="favorite-card-info">
-                    <span class="favorite-category">定食</span>
-                    <h3>ごはん食堂</h3>
-                    <p class="favorite-location">東京都新宿区</p>
-                    <p class="rating"><span aria-label="5つ星中4.3">★★★★☆</span> 4.3</p>
-                </div>
-                <a class="detail-link" href="{{ url_for('restaurants.restaurant_detail') }}">詳細を見る</a>
-            </article>
-        </section>
-
-        <section id="favorite-recipes" class="favorite-list favorite-panel" role="tabpanel" aria-labelledby="favorite-recipes-tab" hidden></section>
+        <a class="detail-link" href="{{ url_for('recipes.recipe_detail', recipe_id=recipe.id) }}">詳細を見る</a>
+        <form method="post" action="{{ url_for('users.toggle_recipe_favorite', recipe_id=recipe.id) }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="return_to" value="favorites">
+            <button type="submit" class="detail-link">解除</button>
+        </form>
+    </article>
+    {% else %}
+    <p class="favorite-empty">お気に入りのレシピはまだありません。</p>
+    {% endfor %}
+</section>
 {% endblock %}
 
 {% block scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        const recipes = {
-            "recipe-1": { title: "やみつき豚キムチ丼", author: "ユーザーA", url: "recipe_detail.html" }
-        };
-        const recipeList = document.querySelector("#favorite-recipes");
-
-        const loadFavorites = () => {
-            try {
-                return JSON.parse(localStorage.getItem("favoriteRecipes")) || [];
-            } catch {
-                return [];
-            }
-        };
-
-        const favoriteIds = loadFavorites().filter((id) => recipes[id]);
-        if (favoriteIds.length === 0) {
-            const empty = document.createElement("p");
-            empty.className = "favorite-empty";
-            empty.textContent = "お気に入りのレシピはまだありません。";
-            recipeList.append(empty);
-        }
-        favoriteIds.forEach((id) => {
-            const recipe = recipes[id];
-            const card = document.createElement("article");
-            card.className = "favorite-card";
-
-            const icon = document.createElement("div");
-            icon.className = "favorite-card-icon recipe-favorite-icon";
-            icon.setAttribute("aria-hidden", "true");
-            icon.textContent = "🍚";
-            const info = document.createElement("div");
-            info.className = "favorite-card-info";
-            const category = document.createElement("span");
-            category.className = "favorite-category";
-            category.textContent = "レシピ";
-            const title = document.createElement("h3");
-            title.textContent = recipe.title;
-            const author = document.createElement("p");
-            author.textContent = `投稿者：${recipe.author}`;
-            info.append(category, title, author);
-
-            const link = document.createElement("a");
-            link.className = "detail-link";
-            link.href = recipe.url;
-            link.textContent = "詳細を見る";
-
-            card.append(icon, info, link);
-            recipeList.append(card);
-        });
-
         const tabs = document.querySelectorAll(".favorite-tab");
         const panels = document.querySelectorAll(".favorite-panel");
         tabs.forEach((tab) => {
             tab.addEventListener("click", () => {
-                tabs.forEach((t) => {
-                    t.classList.remove("active");
-                    t.setAttribute("aria-selected", "false");
+                tabs.forEach((item) => {
+                    item.classList.remove("active");
+                    item.setAttribute("aria-selected", "false");
                 });
                 panels.forEach((panel) => {
                     panel.classList.remove("active");
@@ -120,7 +94,6 @@
 
         const sidebar = document.querySelector("#sidebar");
         const toggle = document.querySelector(".sidebar-toggle");
-
         if (!sidebar || !toggle) return;
 
         const setOpen = (open) => {

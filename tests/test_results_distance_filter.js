@@ -26,7 +26,7 @@ function element() {
   };
 }
 
-function setup(distances) {
+function setup(distances, mode = "local") {
   const results = distances.map((distance, index) => {
     const result = element();
     result.dataset.distance = String(distance);
@@ -47,7 +47,9 @@ function setup(distances) {
   const elements = Object.fromEntries(ids.map((id) => [id, element()]));
   const reel = element();
   elements["roulette-display"].querySelector = () => reel;
-  elements.distanceFilter.value = "10";
+  elements.distanceFilter.value = mode === "unlimited" ? "unlimited" : "10";
+  elements.distanceFilter.dataset.searchMode = mode;
+  elements.distanceFilter.form = { submissions: 0, requestSubmit() { this.submissions++; } };
   elements.distanceFilter.disabled = true;
   const handlers = {};
   const document = {
@@ -91,6 +93,20 @@ test("distance filter preserves precision, restores shops and updates roulette c
   assert.equal(elements["roulette-modal"].hidden, false);
   assert.match(elements["roulette-status"].children[1].children[1].textContent, /1店舗/);
   assert.equal(alerts.length, 0);
+});
+
+test("switching unlimited mode performs a new search and leaves results unfiltered", () => {
+  const local = setup([]);
+  local.elements.distanceFilter.value = "unlimited";
+  local.elements.distanceFilter.handlers.change();
+  assert.equal(local.elements.distanceFilter.form.submissions, 1);
+
+  const unlimited = setup([1000, 200000], "unlimited");
+  assert.ok(unlimited.results.every((item) => !item.hidden));
+  assert.equal(unlimited.elements["selected-count"].textContent, "2店舗");
+  unlimited.elements.distanceFilter.value = "10";
+  unlimited.elements.distanceFilter.handlers.change();
+  assert.equal(unlimited.elements.distanceFilter.form.submissions, 1);
 });
 
 test("no matching shops displays feedback and excludes them from roulette", () => {

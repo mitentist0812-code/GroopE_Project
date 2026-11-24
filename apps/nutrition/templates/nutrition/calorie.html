@@ -13,7 +13,7 @@
         <h3 id="upload-title">料理の写真を選択</h3>
         <p class="calorie-hint">料理全体が写った、明るく見やすい写真がおすすめです。</p>
 
-        <label class="photo-picker" for="meal-photo">
+        <label id="photo-picker" class="photo-picker" for="meal-photo">
           <span class="photo-picker-icon" aria-hidden="true">＋</span>
           <span>写真を撮る・選ぶ</span>
           <small>JPG、PNG、HEICなど（10MBまで）</small>
@@ -24,20 +24,33 @@
         <div id="photo-preview" class="photo-preview" hidden>
           <img id="preview-image" alt="選択した料理のプレビュー">
           <p id="preview-name"></p>
+          <button type="button" id="change-photo">画像を変更する</button>
         </div>
 
-        <button type="button" id="estimate-button" class="estimate-button" data-authenticated="{{ 'true' if session.get('email') else 'false' }}" disabled>
+        <button type="button" id="estimate-button" class="estimate-button" data-authenticated="{{ 'true' if session.get('email') and session.get('account_type') != 'restaurant' else 'false' }}" data-analyze-url="{{ url_for('nutrition.analyze_calorie_photo') }}" data-foods-url="{{ url_for('nutrition.food_search') }}" data-csrf-token="{{ calorie_csrf }}" disabled>
           カロリーを推定する
         </button>
-        {% if not session.get("email") %}<p class="auth-required-note">カロリー計算を利用するにはログインしてください。</p>{% endif %}
-        <p class="privacy-note">選択した写真はこの画面でプレビューするだけで、送信されません。</p>
+        {% if session.get("account_type") == "restaurant" %}<p class="auth-required-note">店舗アカウントではカロリー計算を利用できません。</p>
+        {% elif not session.get("email") %}<p class="auth-required-note">カロリー計算を利用するにはログインしてください。</p>{% endif %}
+        <p class="privacy-note">推定ボタンを押すと写真をGoogle Gemini APIに送信します。無料枠では送信内容がGoogleのサービス改善に使用される場合があります。写真は記録として保存しませんが、サーバー上に一時ファイルが作られる場合があります。</p>
       </section>
 
       <section class="calorie-result-card" aria-labelledby="result-title">
         <h3 id="result-title">推定結果</h3>
         <div id="result-message" class="result-placeholder" role="status" aria-live="polite">
-          <span class="result-icon" aria-hidden="true">🍽️</span>
-          <p>写真を選択すると、ここに推定結果が表示されます。</p>
+          写真を選択すると、ここに推定結果が表示されます。
+        </div>
+        <div id="calorie-results" hidden>
+          <h4 id="dish-name"></h4>
+          <p>材料と量はAIの推定です。食品成分表から自動選択した食品を確認し、必要に応じて編集してください。</p>
+          <p id="calorie-total" role="status"></p>
+          <details id="ingredient-details">
+            <summary><span class="ingredient-details-closed">材料一覧を見る</span><span class="ingredient-details-open">材料一覧を閉じる</span></summary>
+            <button type="button" id="edit-ingredients" aria-expanded="false">材料を編集</button>
+            <div id="ingredient-list"></div>
+            <button type="button" id="add-ingredient" hidden>材料を追加</button>
+          </details>
+          <p>出典：<a href="https://www.mext.go.jp/a_menu/syokuhinseibun/mext_00001.html" target="_blank" rel="noopener noreferrer">日本食品標準成分表（八訂）増補2023年</a></p>
         </div>
         <div class="calorie-result-note">
           <strong>ご利用にあたって</strong>
@@ -48,68 +61,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const photoInput = document.querySelector("#meal-photo");
-      const preview = document.querySelector("#photo-preview");
-      const previewImage = document.querySelector("#preview-image");
-      const previewName = document.querySelector("#preview-name");
-      const errorMessage = document.querySelector("#photo-error");
-      const estimateButton = document.querySelector("#estimate-button");
-      const resultMessage = document.querySelector("#result-message");
-      const isAuthenticated = estimateButton.dataset.authenticated === "true";
-      let previewUrl = "";
-
-      photoInput.addEventListener("change", () => {
-        const file = photoInput.files[0];
-        errorMessage.hidden = true;
-        errorMessage.textContent = "";
-        estimateButton.disabled = true;
-        preview.hidden = true;
-        resultMessage.textContent = "写真を選択すると、ここに推定結果が表示されます。";
-
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-          previewUrl = "";
-        }
-
-        if (!file) return;
-
-        if (!file.type.startsWith("image/")) {
-          errorMessage.textContent = "画像ファイルを選択してください。";
-          errorMessage.hidden = false;
-          photoInput.value = "";
-          return;
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-          errorMessage.textContent = "ファイルサイズは10MB以下にしてください。";
-          errorMessage.hidden = false;
-          photoInput.value = "";
-          return;
-        }
-
-        previewUrl = URL.createObjectURL(file);
-        previewImage.src = previewUrl;
-        previewName.textContent = file.name;
-        preview.hidden = false;
-        estimateButton.disabled = !isAuthenticated;
-        resultMessage.innerHTML = '<span class="result-icon" aria-hidden="true">🔎</span><p>写真の準備ができました。「カロリーを推定する」を押してください。</p>';
-      });
-
-      previewImage.addEventListener("error", () => {
-        preview.hidden = true;
-        estimateButton.disabled = true;
-        errorMessage.textContent = "この画像はプレビューできません。別の画像を選択してください。";
-        errorMessage.hidden = false;
-        resultMessage.textContent = "別の画像を選択してください。";
-      });
-
-      estimateButton.addEventListener("click", () => {
-        if (!isAuthenticated) return;
-        resultMessage.textContent = "カロリー推定機能は準備中です。画像解析機能の接続後に結果を表示します。";
-      });
-
-    });
-  </script>
+  <script src="{{ url_for('static', filename='js/calorie.js') }}" defer></script>
 {% endblock %}

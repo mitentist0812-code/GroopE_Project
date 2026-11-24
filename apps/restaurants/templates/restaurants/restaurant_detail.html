@@ -1,4 +1,5 @@
 {% extends "shared/base.html" %}
+{% from "shared/review_section.html" import render_review_section with context %}
 
 {% block title %}店舗詳細{% if place %} - {{ place.name }}{% elif not real_place %} - 元気ラーメン{% endif %}{% endblock %}
 {% block body_class %}page-detail{% endblock %}
@@ -6,294 +7,192 @@
 {% block account_actions %}{{ super() }}{% endblock %}
 
 {% block content %}
+{% if history_error %}
+<p role="alert">店舗の閲覧履歴を保存できませんでした。時間をおいて再度お試しください。</p>
+{% endif %}
 {% if real_place %}
 <a href="{{ url_for('home.top') }}" class="back-link back-to-results">← 検索結果に戻る</a>
 {% if place_error %}
 <section class="detail-panel"><p role="alert">{{ place_error }}</p></section>
 {% else %}
 <section class="detail-panel" aria-labelledby="shop-title">
-    <div class="hero">
-        <div class="photo-container">
-            <div class="hero-image">
-                <img id="place-photo" src="{{ image_url or url_for('static', filename='img/NoImage.jpg') }}" alt="{{ place.name }}の店舗画像{% if not image_url %}（画像なし）{% endif %}"{% if image_url %} data-fallback="{{ url_for('static', filename='img/NoImage.jpg') }}"{% endif %}>
-            </div>
-            {% if image_url %}
-            <div id="photo-attribution">
-                {% for author in place.photo.authors %}
-                <p class="photo-author">
-                    {% if author.avatar %}<img src="{{ author.avatar }}" alt="" class="photo-author-avatar">{% endif %}
-                    写真：{% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener noreferrer">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}
-                </p>
-                {% endfor %}
-                {% if place.photo.source %}<a href="{{ place.photo.source }}" target="_blank" rel="noopener noreferrer">Google Mapsでこの写真を見る</a>{% endif %}
-            </div>
-            {% endif %}
-            <p id="photo-error" role="status"{% if not photo_error %} hidden{% endif %}>{{ photo_error or "店舗写真を表示できませんでした。" }}</p>
-        </div>
-        <div>
-            <div class="hero-heading">
-                <h2 id="shop-title">{{ place.name }}</h2>
-                <button type="button" class="button button-primary reservation-button" disabled>予約する（未対応）</button>
-            </div>
-            <button type="button" class="favorite-button" disabled>♡ お気に入り登録（未対応）</button>
-            <p class="rating">★ {{ place.rating if place.rating is not none else "情報なし" }}</p>
-            <p class="hero-description">店舗紹介は利用できません。</p>
-        </div>
+  <div class="hero">
+    <div class="photo-container">
+      <div class="hero-image">
+        <img id="place-photo" src="{{ image_url or url_for('static', filename='img/NoImage.jpg') }}" alt="{{ place.name }}の店舗画像{% if not image_url %}（画像なし）{% endif %}"{% if image_url %} data-fallback="{{ url_for('static', filename='img/NoImage.jpg') }}"{% endif %}>
+      </div>
+      {% if image_url %}
+      <div id="photo-attribution">
+        {% for author in place.photo.authors %}
+        <p class="photo-author">
+          {% if author.avatar %}<img src="{{ author.avatar }}" alt="" class="photo-author-avatar">{% endif %}
+          写真：{% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener noreferrer">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}
+        </p>
+        {% endfor %}
+        {% if place.photo.source %}<a href="{{ place.photo.source }}" target="_blank" rel="noopener noreferrer">Google Mapsでこの写真を見る</a>{% endif %}
+      </div>
+      {% endif %}
+      <p id="photo-error" role="status"{% if not photo_error %} hidden{% endif %}>{{ photo_error or "店舗写真を表示できませんでした。" }}</p>
     </div>
-    <div class="info-grid">
-        <div class="info-item"><span class="info-label">住所</span><span class="info-value">{{ place.address or "情報なし" }}</span></div>
-        <div class="info-item"><span class="info-label">アクセス</span><span class="info-value">情報なし{% if place.url %}（<a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで確認</a>）{% endif %}</span></div>
-        <div class="info-item">
-            <span class="info-label">営業時間</span>
-            <span class="info-value">
-                {% for day in place.hours %}{{ day }}<br>{% else %}情報なし{% endfor %}
-            </span>
-        </div>
-        <div class="info-item"><span class="info-label">価格帯</span><span class="info-value">{{ place.price }}（目安）</span></div>
-        <div class="info-item"><span class="info-label">電話番号</span><span class="info-value">{{ place.phone or "情報なし" }}</span></div>
+    <div>
+      <div class="hero-heading">
+        <h2 id="shop-title">{{ place.name }}</h2>
+        {% if reservation_available and reviewer %}
+        <a href="{{ url_for('restaurants.reservation_form', place_id=place_id) }}" class="button button-primary reservation-button">予約を申請する</a>
+        {% elif reservation_available %}
+        <button type="button" class="button button-primary reservation-button" disabled title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else '一般ユーザーでログインしてください' }}">予約を申請する</button>
+        {% else %}
+        <button type="button" class="button button-primary reservation-button" disabled>予約対象外</button>
+        {% endif %}
+      </div>
+      {% if local_place %}<p role="status">Google未連携の店舗です。店舗情報と位置はアカウント登録者の申告によるものです。予約はデモです。</p>{% endif %}
+      {% if reservation_available %}<p>予約は店舗が承認すると確定します。</p>{% endif %}
+      <form method="post" action="{{ url_for('users.toggle_place_favorite', place_id=place_id) }}">
+        <input type="hidden" name="action" value="{{ 'remove' if is_favorite else 'add' }}">
+        <button type="submit" class="favorite-button{% if is_favorite %} active{% endif %}"
+          {% if not reviewer %}disabled title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}"{% endif %}
+          aria-pressed="{{ 'true' if is_favorite else 'false' }}">
+          {% if is_favorite %}♥ お気に入り登録済み{% else %}♡ お気に入りに登録{% endif %}
+        </button>
+      </form>
+      {% if not local_place %}<p class="rating">Google評価：★ {{ place.rating if place.rating is not none else "情報なし" }}</p>{% endif %}
+      <p class="hero-description">店舗紹介は利用できません。</p>
     </div>
-    {% if place.website %}<p><a href="{{ place.website }}" target="_blank" rel="noopener noreferrer">店舗ウェブサイト</a></p>{% endif %}
-    {% if place.url %}<p><a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで見る</a></p>{% endif %}
-    {% for attribution in place.attributions %}
-    <p>情報提供：{% if attribution.url %}<a href="{{ attribution.url }}" target="_blank" rel="noopener noreferrer">{{ attribution.name }}</a>{% else %}{{ attribution.name }}{% endif %}</p>
+  </div>
+  <div class="info-grid">
+    <div class="info-item"><span class="info-label">住所</span><span class="info-value">{{ place.address or "情報なし" }}</span></div>
+    <div class="info-item"><span class="info-label">アクセス</span><span class="info-value">情報なし{% if place.url %}（<a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで確認</a>）{% endif %}</span></div>
+    <div class="info-item">
+      <span class="info-label">営業時間</span>
+      <span class="info-value">{% for day in place.hours %}{{ day }}<br>{% else %}情報なし{% endfor %}</span>
+    </div>
+    <div class="info-item"><span class="info-label">価格帯</span><span class="info-value">{{ place.price }}（目安）</span></div>
+    <div class="info-item"><span class="info-label">電話番号</span><span class="info-value">{{ place.phone or "情報なし" }}</span></div>
+  </div>
+  {% if place.website %}<p><a href="{{ place.website }}" target="_blank" rel="noopener noreferrer">店舗ウェブサイト</a></p>{% endif %}
+  {% if place.url %}<p><a href="{{ place.url }}" target="_blank" rel="noopener noreferrer">Google Mapsで見る</a></p>{% endif %}
+  {% for attribution in place.attributions %}
+  <p>情報提供：{% if attribution.url %}<a href="{{ attribution.url }}" target="_blank" rel="noopener noreferrer">{{ attribution.name }}</a>{% else %}{{ attribution.name }}{% endif %}</p>
+  {% endfor %}
+  {% if not local_place %}<div class="google-maps-detail-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>{% endif %}
+</section>
+<section
+  class="allergen-panel {% if store_menu_error or allergen_model_error or store_menu_matches %}allergen-warning{% else %}allergen-info{% endif %}"
+  aria-labelledby="store-allergen-title"
+  role="{% if store_menu_error or allergen_model_error or store_menu_matches %}alert{% else %}status{% endif %}"
+>
+  <h3 id="store-allergen-title">登録メニューのアレルゲン候補</h3>
+  {% if store_menu_error %}
+  <p>店舗の登録メニューを取得できず、アレルゲン候補を確認できませんでした。</p>
+  {% elif allergen_model_error %}
+  <p>アレルゲン候補を判定できませんでした。必要に応じて店舗にお問い合わせください。</p>
+  {% elif not store_menus_available %}
+  <p>この店舗の登録メニュー情報がないため、アレルゲン候補を確認できません。店舗に直接お問い合わせください。</p>
+  {% elif store_menu_matches %}
+  <p>登録された料理名から、次のメニューにアレルゲンが含まれる可能性があります。</p>
+  <ul>
+    {% for menu in store_menu_matches %}
+    <li><strong>{{ menu.name }}</strong>：{{ menu.possible_allergens|join("、") }}</li>
     {% endfor %}
-    <div class="google-maps-detail-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>
+  </ul>
+  {% else %}
+  <p>登録メニュー名からは候補を検出しませんでした。含まれないことを保証するものではありません。</p>
+  {% endif %}
+  <p class="allergen-caveat">料理名だけからの推定です。原材料・調理方法・調理器具の共用などは判定できません。アレルギーがある場合は、必ず店舗に確認してください。</p>
 </section>
-<section class="review-section" aria-labelledby="review-title">
-    <div class="review-heading">
-        <h3 id="review-title">レビュー一覧</h3>
-        <label>
-            <select class="review-sort" aria-label="レビューの並び替え（未対応）" disabled>
-                <option>高評価順</option>
-                <option>低評価順</option>
-                <option>新しい順</option>
-                <option>古い順</option>
-            </select>
-        </label>
-    </div>
-    <p>レビューの表示・投稿は未対応です。</p>
-    <button type="button" class="review-button" disabled>レビューをする（未対応）</button>
-</section>
+{{ render_review_section(
+  reviews,
+  average_rating,
+  own_review,
+  reviewer,
+  url_for("restaurants.submit_restaurant_review", place_id=place_id),
+  review_sort
+) }}
 <div class="actions">
-    <a href="{{ url_for('home.top') }}" class="button button-secondary back-to-results">一覧に戻る</a>
-    <a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
+  <a href="{{ url_for('home.top') }}" class="button button-secondary back-to-results">一覧に戻る</a>
+  <a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
 </div>
 {% endif %}
 {% else %}
 <a href="{{ url_for('home.results') }}" class="back-link">← 検索結果に戻る</a>
-		<section class="detail-panel" aria-labelledby="shop-title">
-			<div class="hero">
-				<div class="hero-image" aria-label="店舗画像">店舗画像</div>
-				<div>
-					<div class="hero-heading">
-						<h2 id="shop-title">元気ラーメン</h2>
-						<a {% if session.get("email") %}href="{{ url_for('restaurants.reservation_form') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます"{% endif %} class="button button-primary reservation-button{% if not session.get('email') %} auth-disabled-control{% endif %}">予約する</a>
-					</div>
-					<button type="button" class="favorite-button active" id="favoriteButton" {% if not session.get("email") %}disabled{% endif %}>
-						{% if session.get("email") %}♥ お気に入り登録済み{% else %}♡ お気に入り登録{% endif %}
-					</button>
-					<p class="rating">★ 4.3（128件の口コミ）</p>
-					<p class="hero-description">こだわりの濃厚スープとボリュームのある一杯が人気のラーメン店です。</p>
-				</div>
-			</div>
-
-			<div class="info-grid">
-				<div class="info-item"><span class="info-label">住所</span><span class="info-value">東京都〇〇区〇〇町1-2-3</span></div>
-				<div class="info-item"><span class="info-label">アクセス</span><span class="info-value">〇〇駅から徒歩6分（約450m）</span></div>
-				<div class="info-item"><span class="info-label">営業時間</span><span class="info-value">11:00～22:00<br>定休日：火曜日</span></div>
-				<div class="info-item"><span class="info-label">予算</span><span class="info-value">1,000～1,500円</span></div>
-			</div>
-		</section>
-
-		<section class="review-section" aria-labelledby="review-title">
-			<div class="review-heading">
-				<h3 id="review-title">レビュー一覧</h3>
-
-				<label>
-					<select class="review-sort" id="reviewSort" aria-label="レビューの並び替え">
-						<option value="rating-desc">高評価順</option>
-						<option value="rating-asc">低評価順</option>
-						<option value="newest">新しい順</option>
-						<option value="oldest">古い順</option>
-					</select>
-				</label>
-			</div>
-
-			<ul class="review-list" id="reviewList">
-				<li class="review-item" data-rating="5" data-date="2026-09-29">
-					<div class="review-avatar">ご</div>
-					<div>
-						<div class="review-user">
-							<span class="review-name">ごはん好き</span>
-							<span class="review-date">2026年9月29日</span>
-						</div>
-						<span class="review-rating">★★★★★</span>
-						<p class="review-text">
-							スープが濃厚で、とてもおいしかったです。
-						</p>
-					</div>
-				</li>
-
-				<li class="review-item" data-rating="4" data-date="2026-09-22">
-					<div class="review-avatar">ラ</div>
-					<div>
-						<div class="review-user">
-							<span class="review-name">ラーメン太郎</span>
-							<span class="review-date">2026年9月22日</span>
-						</div>
-						<span class="review-rating">★★★★☆</span>
-						<p class="review-text">
-							ボリュームがあり、満足できました。
-						</p>
-					</div>
-				</li>
-
-				<li class="review-item" data-rating="1" data-date="2026-09-30">
-					<div class="review-avatar">麺</div>
-					<div>
-						<div class="review-user">
-							<span class="review-name">麺の迷子</span>
-							<span class="review-date">2026年9月30日</span>
-						</div>
-						<span class="review-rating">★☆☆☆☆</span>
-						<p class="review-text">
-							ラーメンを食べたはずなのに、気づいたら宇宙が味噌汁になっていて、
-							箸だけが昨日の方向を指していました。麺はたぶん会議に出席していたので、
-							料理としての存在感がありませんでした。
-						</p>
-					</div>
-				</li>
-			</ul>
-
-			<button type="button" class="review-button" id="reviewButton" {% if not session.get("email") %}disabled{% endif %}>
-				レビューをする
-			</button>
-
-			<dialog class="review-dialog" id="reviewDialog">
-				<form method="dialog">
-					<h3>レビューをする</h3>
-
-					<label>評価</label>
-					<div class="rating-stars" id="ratingStars" aria-label="評価">
-						<button type="button" class="rating-star" data-rating="1" {% if not session.get("email") %}disabled{% endif %}>★</button>
-						<button type="button" class="rating-star" data-rating="2" {% if not session.get("email") %}disabled{% endif %}>★</button>
-						<button type="button" class="rating-star" data-rating="3" {% if not session.get("email") %}disabled{% endif %}>★</button>
-						<button type="button" class="rating-star" data-rating="4" {% if not session.get("email") %}disabled{% endif %}>★</button>
-						<button type="button" class="rating-star" data-rating="5" {% if not session.get("email") %}disabled{% endif %}>★</button>
-					</div>
-					<input type="hidden" id="reviewRating" name="rating" required>
-
-					<label for="reviewText">レビュー内容</label>
-					<textarea id="reviewText" required
-						placeholder="レビューを入力してください"></textarea>
-
-					<div class="dialog-actions">
-						<button type="button" class="button button-secondary" id="closeReview">
-							キャンセル
-						</button>
-						<button type="submit" class="review-button" {% if not session.get("email") %}disabled{% endif %}>
-							投稿する
-						</button>
-					</div>
-				</form>
-			</dialog>
-		</section>
-
-		<div class="actions">
-			<a href="{{ url_for('home.results') }}" class="button button-secondary">一覧に戻る</a>
-			<a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
-		</div>
+<section class="detail-panel" aria-labelledby="shop-title">
+  <div class="hero">
+    <div class="hero-image" aria-label="店舗画像">店舗画像</div>
+    <div>
+      <div class="hero-heading">
+        <h2 id="shop-title">元気ラーメン</h2>
+        <button type="button" class="button button-primary reservation-button" disabled>予約対象外（サンプル）</button>
+      </div>
+      <form method="post" action="{{ url_for('users.toggle_place_favorite', place_id='sample-restaurant') }}">
+        <input type="hidden" name="action" value="{{ 'remove' if is_favorite else 'add' }}">
+        <button type="submit" class="favorite-button{% if is_favorite %} active{% endif %}" id="favoriteButton"
+          {% if not reviewer %}disabled title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}"{% endif %}
+          aria-pressed="{{ 'true' if is_favorite else 'false' }}">
+          {% if is_favorite %}♥ お気に入り登録済み{% else %}♡ お気に入りに登録{% endif %}
+        </button>
+      </form>
+      <p class="hero-description">こだわりの濃厚スープとボリュームのある一杯が人気のラーメン店です。</p>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-item"><span class="info-label">住所</span><span class="info-value">東京都〇〇区〇〇町1-2-3</span></div>
+    <div class="info-item"><span class="info-label">アクセス</span><span class="info-value">〇〇駅から徒歩6分（約450m）</span></div>
+    <div class="info-item"><span class="info-label">営業時間</span><span class="info-value">11:00～22:00<br>定休日：火曜日</span></div>
+    <div class="info-item"><span class="info-label">予算</span><span class="info-value">1,000～1,500円</span></div>
+  </div>
+</section>
+<section class="allergen-panel allergen-info" aria-labelledby="sample-allergen-title" role="status">
+  <h3 id="sample-allergen-title">アレルゲン候補</h3>
+  <p>サンプル店舗のメニュー情報がないため、アレルゲン候補を確認できません。店舗に直接お問い合わせください。</p>
+</section>
+{{ render_review_section(
+  reviews,
+  average_rating,
+  own_review,
+  reviewer,
+  url_for("restaurants.submit_sample_restaurant_review"),
+  review_sort
+) }}
+<div class="actions">
+  <a href="{{ url_for('home.results') }}" class="button button-secondary">一覧に戻る</a>
+  <a href="{{ url_for('home.top') }}" class="button button-primary">もう一度検索する</a>
+</div>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if real_place %}
+{% if real_place and not place_error %}
 <script src="{{ url_for('static', filename='js/place-photo.js') }}" defer></script>
 <script>
-    if (document.referrer) {
-        const previous = new URL(document.referrer);
-        if (previous.origin === location.origin && previous.pathname === {{ url_for('home.results')|tojson }}) {
-            document.querySelectorAll(".back-to-results").forEach((link) => {
-                link.addEventListener("click", (event) => {
-                    event.preventDefault();
-                    history.back();
-                });
-            });
-        }
+  if (document.referrer) {
+    const previous = new URL(document.referrer);
+    if (previous.origin === location.origin && previous.pathname === {{ url_for('home.results')|tojson }}) {
+      document.querySelectorAll(".back-to-results").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          history.back();
+        });
+      });
     }
-</script>
-{% else %}
-<script>
-    const favoriteButton = document.getElementById("favoriteButton");
-    const reviewButton = document.getElementById("reviewButton");
-    const reviewDialog = document.getElementById("reviewDialog");
-    const closeReview = document.getElementById("closeReview");
-
-    let isFavorite = true;
-
-    favoriteButton.addEventListener("click", () => {
-        isFavorite = !isFavorite;
-        favoriteButton.classList.toggle("active", isFavorite);
-        favoriteButton.textContent = isFavorite
-            ? "♥ お気に入り登録済み"
-            : "♡ お気に入り登録";
-    });
-
-    reviewButton.addEventListener("click", () => reviewDialog.showModal());
-    closeReview.addEventListener("click", () => reviewDialog.close());
-
-    const ratingStars = document.querySelectorAll(".rating-star");
-    const reviewRating = document.getElementById("reviewRating");
-
-    ratingStars.forEach((star) => {
-        star.addEventListener("click", () => {
-            const selectedRating = Number(star.dataset.rating);
-            reviewRating.value = selectedRating;
-            ratingStars.forEach((item) => {
-                item.classList.toggle("active", Number(item.dataset.rating) <= selectedRating);
-            });
-        });
-    });
-
-    const reviewSort = document.getElementById("reviewSort");
-    const reviewList = document.getElementById("reviewList");
-
-    reviewSort.addEventListener("change", () => {
-        const reviews = [...reviewList.querySelectorAll(".review-item")];
-        reviews.sort((a, b) => {
-            switch (reviewSort.value) {
-                case "rating-asc":
-                    return Number(a.dataset.rating) - Number(b.dataset.rating);
-                case "newest":
-                    return new Date(b.dataset.date) - new Date(a.dataset.date);
-                case "oldest":
-                    return new Date(a.dataset.date) - new Date(b.dataset.date);
-                default:
-                    return Number(b.dataset.rating) - Number(a.dataset.rating);
-            }
-        });
-        reviews.forEach((review) => reviewList.appendChild(review));
-    });
+  }
 </script>
 {% endif %}
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const sidebar = document.querySelector("#sidebar");
-        const toggle = document.querySelector(".sidebar-toggle");
-        if (!sidebar || !toggle) return;
-
-        const setOpen = (open) => {
-            sidebar.classList.toggle("is-open", open);
-            toggle.setAttribute("aria-expanded", open ? "true" : "false");
-            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
-        };
-
-        toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
-        sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
-        document.addEventListener("click", (event) => {
-            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
-            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
-        });
+  document.addEventListener("DOMContentLoaded", () => {
+    const sidebar = document.querySelector("#sidebar");
+    const toggle = document.querySelector(".sidebar-toggle");
+    if (!sidebar || !toggle) return;
+    const setOpen = (open) => {
+      sidebar.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+    };
+    toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
+    sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+    document.addEventListener("click", (event) => {
+      if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
+      if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
     });
+  });
 </script>
 {% endblock %}

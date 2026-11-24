@@ -2,92 +2,43 @@
 
 {% block title %}予約管理 - 一飯一会{% endblock %}
 {% block body_class %}page-restaurant page-reservation-management{% endblock %}
-{% block active_nav %}{% endblock %}
-{% block account_actions %}{{ super() }}{% endblock %}
 {% block sidebar %}{% endblock %}
 {% block content %}
 <a href="{{ url_for('restaurants.restaurant') }}" class="back-link">← 店舗管理に戻る</a>
-    <h2>予約管理</h2>
-    <p class="page-intro">店舗への予約内容を確認し、必要に応じてキャンセルできます。</p>
-
-    <section class="restaurant-card reservations-card" aria-labelledby="reservation-list-title">
-      <div class="restaurant-section-heading">
-        <h3 id="reservation-list-title">予約一覧 <span id="reservation-count">0件</span></h3>
+<h2>予約管理</h2>
+<p class="page-intro">予約申請を確認し、承認またはキャンセルできます。営業時間や空席は自動で確認されません。</p>
+{% if config.PLACE_LINK_DEMO_MODE %}
+<p role="alert">店舗連携はデモのため、実際の店舗への予約として利用しないでください。</p>
+{% endif %}
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<p role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+{% endfor %}
+<section class="restaurant-card reservations-card" aria-labelledby="reservation-list-title">
+  <div class="restaurant-section-heading">
+    <h3 id="reservation-list-title">予約一覧 <span id="reservation-count">{{ reservations|length }}件</span></h3>
+  </div>
+  {% if not reservations %}<p class="restaurant-status">予約はありません。</p>{% endif %}
+  <ul id="reservation-list" class="reservation-list">
+    {% for reservation in reservations %}
+    <li class="reservation-item">
+      <div class="reservation-details">
+        <strong>{{ reservation.reserved_at.strftime('%Y年%m月%d日 %H:%M') }}</strong>
+        <span>{{ reservation.guests }}名</span>
+        <span>予約者：{{ reservation.name }}</span>
+        {% if reservation.is_demo %}<span>デモ予約（実際の予約ではありません）</span>{% endif %}
+        <span>{{ {'pending': '承認待ち', 'confirmed': '予約確定', 'cancelled': 'キャンセル'}[reservation.status] }}</span>
       </div>
-      <p class="restaurant-storage-note">予約内容はこのブラウザ内に仮保存されています。実際の予約データとの連携にはサーバー接続が必要です。</p>
-      <p id="reservation-status" class="restaurant-status" role="status" aria-live="polite"></p>
-      <ul id="reservation-list" class="reservation-list"></ul>
-    </section>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const list = document.querySelector("#reservation-list");
-      const count = document.querySelector("#reservation-count");
-      const status = document.querySelector("#reservation-status");
-
-      // 予約フォームで仮保存したデータを取得
-      let reservations = JSON.parse(localStorage.getItem("reservations") || "[]");
-
-      const renderReservations = () => {
-        list.replaceChildren();
-        count.textContent = `${reservations.length}件`;
-
-        reservations.forEach((reservation, index) => {
-          const item = document.createElement("li");
-          item.className = "reservation-item";
-
-          const details = document.createElement("div");
-          details.className = "reservation-details";
-
-          const dateTime = document.createElement("strong");
-          dateTime.textContent = new Intl.DateTimeFormat("ja-JP", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            weekday: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-          }).format(new Date(reservation.datetime));
-
-          const guests = document.createElement("span");
-          guests.textContent = `${reservation.guests}名`;
-
-          const name = document.createElement("span");
-          name.textContent = `予約者：${reservation.name}`;
-
-          details.append(dateTime, guests, name);
-
-          const removeButton = document.createElement("button");
-          removeButton.type = "button";
-          removeButton.className = "restaurant-remove-button";
-          removeButton.textContent = "予約をキャンセル";
-          removeButton.setAttribute("aria-label", `${dateTime.textContent}の予約をキャンセル`);
-
-          removeButton.addEventListener("click", () => {
-            if (!window.confirm(`${reservation.name}さんの予約をキャンセルしますか？`)) {
-              return;
-            }
-            reservations.splice(index, 1);
-            localStorage.setItem("reservations", JSON.stringify(reservations));
-
-            renderReservations();
-            status.textContent = "予約をキャンセルしました。";
-          });
-
-          item.append(details, removeButton);
-          list.append(item);
-        });
-
-        if (reservations.length === 0) {
-          status.textContent = "予約はありません。";
-        } else {
-          status.textContent = "";
-        }
-      };
-
-      renderReservations();
-    });
-</script>
+      {% if reservation.status != 'cancelled' %}
+      <form method="post" action="{{ url_for('restaurants.update_reservation_status', reservation_id=reservation.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if reservation.status == 'pending' and reservation.reserved_at > now %}
+        <button type="submit" name="action" value="confirm" class="restaurant-primary-button">予約を承認</button>
+        {% endif %}
+        <button type="submit" name="action" value="cancel" class="restaurant-remove-button">予約をキャンセル</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 {% endblock %}

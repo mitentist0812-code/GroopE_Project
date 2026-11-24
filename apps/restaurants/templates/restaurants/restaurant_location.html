@@ -1,0 +1,24 @@
+{% extends "shared/base.html" %}
+
+{% block title %}店舗の位置 - 一飯一会{% endblock %}
+{% block content %}
+<a href="{{ url_for('restaurants.restaurant') }}" class="back-link">← 店舗管理に戻る</a>
+<h2>店舗の位置</h2>
+<p>Google未連携の店舗を検索に表示するため、店舗の緯度・経度を設定します。架空店舗の場合は仮の位置であることに注意してください。</p>
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<p role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+{% endfor %}
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="restaurant-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="restaurant-field">
+    <label for="latitude">緯度（-90〜90）</label>
+    <input id="latitude" name="latitude" type="number" step="any" min="-90" max="90" value="{{ request.form.get('latitude', location.latitude if location else '') }}" required>
+  </div>
+  <div class="restaurant-field">
+    <label for="longitude">経度（-180〜180）</label>
+    <input id="longitude" name="longitude" type="number" step="any" min="-180" max="180" value="{{ request.form.get('longitude', location.longitude if location else '') }}" required>
+  </div>
+  <button type="submit" class="restaurant-primary-button">位置を保存</button>
+</form>
+{% endblock %}

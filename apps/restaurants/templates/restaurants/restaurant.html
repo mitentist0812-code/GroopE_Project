@@ -80,6 +80,11 @@
     </section>
 
     <section class="management-choices" aria-label="管理項目">
+      <a class="management-choice" href="{{ url_for('restaurants.restaurant_location') }}">
+        <h3>店舗の位置</h3>
+        <p>Google未連携の店舗を検索に表示するため、緯度と経度を登録します。</p>
+        <span class="management-choice-action">位置を設定 →</span>
+      </a>
       <a class="management-choice" href="{{ url_for('restaurants.menu_management') }}">
         <h3>メニュー管理</h3>
         <p>店舗で提供するメニューを管理します。</p>

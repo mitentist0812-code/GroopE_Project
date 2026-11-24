@@ -139,6 +139,33 @@ class HomeRecommendationTests(unittest.TestCase):
 
     @patch("apps.home.views.search_places", return_value=[])
     @patch("apps.home.views.suggest_searches", return_value=SUGGESTIONS)
+    def test_search_timings_are_logged_without_search_terms(self, suggest, search):
+        with self.assertLogs(self.app.logger.name, level="INFO") as logs:
+            response = self.client.post("/results", data=FORM)
+
+        self.assertEqual(response.status_code, 200)
+        timing_logs = [entry for entry in logs.output if "search_timing" in entry]
+        self.assertTrue(any("stage=ollama" in entry for entry in timing_logs))
+        self.assertEqual(sum("stage=places request=" in entry for entry in timing_logs), 4)
+        self.assertTrue(any("stage=places_batch" in entry for entry in timing_logs))
+        self.assertTrue(any("stage=total" in entry for entry in timing_logs))
+        self.assertTrue(all("duration_s=" in entry for entry in timing_logs))
+        self.assertFalse(any("さっぱり" in entry for entry in timing_logs))
+
+    @patch("apps.home.views.search_places", return_value=[])
+    @patch("apps.home.views.suggest_searches", side_effect=URLError("unavailable"))
+    def test_ai_failure_still_logs_timing(self, suggest, search):
+        with self.assertLogs(self.app.logger.name, level="INFO") as logs:
+            response = self.client.post("/results", data=FORM)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertTrue(any(
+            "search_timing stage=ollama" in entry and "outcome=error" in entry
+            for entry in logs.output
+        ))
+
+    @patch("apps.home.views.search_places", return_value=[])
+    @patch("apps.home.views.suggest_searches", return_value=SUGGESTIONS)
     def test_duplicate_input_and_ai_search_terms_are_only_searched_once(self, suggest, search):
         response = self.client.post("/results", data={**FORM, "dishName": "うどん レストラン", "genre": ""})
         self.assertEqual(response.status_code, 200)
@@ -264,10 +291,11 @@ class HomeRecommendationTests(unittest.TestCase):
                 })
                 self.assertEqual(response.status_code, 200)
                 text = response.get_data(as_text=True)
-                select = text.split('id="distanceFilter" disabled>', 1)[1].split("</select>", 1)[0]
+                select = text.split('id="distanceFilter"', 1)[1].split("</select>", 1)[0]
                 for radius in ("1", "3", "5", "10"):
                     selected = " selected" if radius == "10" else ""
                     self.assertIn(f'<option value="{radius}"{selected}>{radius}km以内</option>', select)
+                self.assertIn('<option value="unlimited">制限なし</option>', select)
                 distance = re.search(r'data-distance="([^"]+)"', text)
                 self.assertIsNotNone(distance)
                 self.assertAlmostEqual(float(distance.group(1)), 1000.1)
@@ -275,6 +303,49 @@ class HomeRecommendationTests(unittest.TestCase):
                 self.assertTrue(places_request.called)
                 for call in places_request.call_args_list:
                     self.assertEqual(call.args[2]["locationBias"]["circle"]["radius"], 10000)
+
+    @patch("apps.home.views.search_places", return_value=[])
+    def test_unlimited_search_is_available_even_without_results(self, search):
+        response = self.client.post("/results", data={
+            "keyword": "パン", "latitude": "48.8", "longitude": "2.3", "radius": "unlimited",
+        })
+        self.assertEqual(response.status_code, 200)
+        search.assert_called_once_with("パン", None, 48.8, 2.3, unlimited=True)
+        text = response.get_data(as_text=True)
+        self.assertIn('<option value="unlimited" selected>', text)
+        self.assertIn('name="latitude" value="48.8"', text)
+        self.assertIn("条件に合う店舗が見つかりませんでした", text)
+        self.assertIn("すべての店舗を網羅するものではありません", text)
+
+    @patch("apps.home.views.suggest_searches", return_value=[])
+    @patch("apps.home.places.places_request")
+    def test_unlimited_search_has_no_country_or_distance_restriction(self, request, suggest):
+        def place(place_id):
+            return {
+                "id": place_id, "displayName": {"text": place_id},
+                "location": {"latitude": 10, "longitude": 0},
+            }
+        def reply(url, fields, payload=None):
+            self.assertIn("places.googleapis.com", url)
+            self.assertNotIn("locationBias", payload)
+            return {"places": [place("distant")]}
+        request.side_effect = reply
+        for search in ({"dishName": "パン"}, {"keyword": "パン"}):
+            with self.subTest(search=search):
+                response = self.client.post("/results", data={
+                    **search, "latitude": "0", "longitude": "0", "radius": "unlimited",
+                })
+                self.assertEqual(response.status_code, 200)
+                text = response.get_data(as_text=True)
+                self.assertIn('data-place-id="distant"', text)
+
+    @patch("apps.home.views.search_places")
+    def test_invalid_radius_is_rejected(self, search):
+        response = self.client.get("/results", query_string={
+            "keyword": "パン", "latitude": "0", "longitude": "0", "radius": "all",
+        })
+        self.assertEqual(response.status_code, 400)
+        search.assert_not_called()
 
     @patch("apps.home.views.search_places")
     @patch("apps.home.views.suggest_searches")
@@ -464,6 +535,25 @@ class RecipeSearchTests(unittest.TestCase):
 
 
 class PlacesTests(unittest.TestCase):
+    @patch("apps.home.places.places_request")
+    def test_unlimited_search_keeps_far_results_with_known_distance(self, request):
+        def place(place_id, location=True):
+            result = {
+                "id": place_id, "displayName": {"text": place_id},
+            }
+            if location:
+                result["location"] = {"latitude": 10, "longitude": 0}
+            return result
+        request.return_value = {"places": [
+            place("distant"), place("no-location", False),
+        ]}
+        places = search_places("パン", None, 0, 0, unlimited=True)
+        self.assertEqual([item["id"] for item in places], ["distant"])
+        self.assertGreater(places[0]["distance"], 10000)
+        payload = request.call_args.args[2]
+        self.assertEqual(payload["textQuery"], "パン")
+        self.assertNotIn("locationBias", payload)
+
     def test_budget_boundaries(self):
         for budget, count in ((0, 1), (999, 1), (1000, 2), (2999, 2),
                               (3000, 3), (9999, 3), (10000, 4)):
@@ -595,9 +685,19 @@ class PlacesTests(unittest.TestCase):
 
 class RestaurantDetailTests(unittest.TestCase):
     def setUp(self):
-        app = create_app()
-        app.config["TESTING"] = True
-        self.client = app.test_client()
+        self.app = create_app({
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        })
+        self.client = self.app.test_client()
+        with self.app.app_context():
+            db.create_all()
+
+    def tearDown(self):
+        with self.app.app_context():
+            db.session.remove()
+            db.drop_all()
+            db.engine.dispose()
 
     @patch("apps.restaurants.views.place_details")
     def test_selected_place_is_displayed_without_sample_content(self, details):
@@ -621,9 +721,9 @@ class RestaurantDetailTests(unittest.TestCase):
         self.assertIn('class="hero-image"', text)
         self.assertIn('class="review-section"', text)
         self.assertIn('class="button button-primary reservation-button" disabled', text)
-        self.assertIn('class="favorite-button" disabled', text)
-        self.assertIn('class="review-button" disabled', text)
-        self.assertIn("レビューの表示・投稿は未対応です。", text)
+        self.assertRegex(text, r'class="favorite-button"\s+disabled')
+        self.assertIn("レビューを投稿するには", text)
+        self.assertIn("レビューはまだありません。", text)
         self.assertNotIn("スープが濃厚で、とてもおいしかったです。", text)
         self.assertEqual(text.count("back-to-results"), 3)
 
@@ -671,7 +771,7 @@ class RestaurantDetailTests(unittest.TestCase):
         response = self.client.get("/restaurants/detail")
         self.assertEqual(response.status_code, 200)
         self.assertIn("元気ラーメン", response.get_data(as_text=True))
-        self.assertIn("予約する", response.get_data(as_text=True))
+        self.assertIn("予約対象外（サンプル）", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":

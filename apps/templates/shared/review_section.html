@@ -1,0 +1,74 @@
+{% macro render_review_section(reviews, average_rating, own_review, reviewer, review_url, review_sort) %}
+<section class="review-section" aria-labelledby="review-title">
+  <div class="review-heading">
+    <h3 id="review-title">レビュー一覧</h3>
+    <form method="get" action="{{ request.path }}" class="review-sort-form">
+      <label for="reviewSort">並び替え</label>
+      <select class="review-sort" id="reviewSort" name="sort" onchange="this.form.submit()">
+        <option value="rating-desc" {% if review_sort == "rating-desc" %}selected{% endif %}>高評価順</option>
+        <option value="rating-asc" {% if review_sort == "rating-asc" %}selected{% endif %}>低評価順</option>
+        <option value="newest" {% if review_sort == "newest" %}selected{% endif %}>新しい順</option>
+        <option value="oldest" {% if review_sort == "oldest" %}selected{% endif %}>古い順</option>
+      </select>
+    </form>
+  </div>
+  {% if average_rating is not none %}
+  <p class="review-summary">平均評価：★ {{ "%.1f"|format(average_rating) }}（{{ reviews|length }}件）</p>
+  {% else %}
+  <p class="review-summary">レビューはまだありません。</p>
+  {% endif %}
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+  <p class="review-form-message" role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+  {% endfor %}
+  {% if reviews %}
+  <ul class="review-list">
+    {% for review in reviews %}
+    <li class="review-item">
+      <div class="review-avatar">{{ review.account.name[:1] }}</div>
+      <div>
+        <div class="review-user">
+          <span class="review-name">{{ review.account.name }}</span>
+          <time class="review-date" datetime="{{ review.created_at.isoformat() }}">{{ review.created_at.strftime("%Y年%m月%d日") }}</time>
+        </div>
+        <span class="review-rating" aria-label="{{ review.rating }}つ星">{{ "★" * review.rating }}{{ "☆" * (5 - review.rating) }}</span>
+        <p class="review-text">{{ review.comment }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if reviewer %}
+  <form method="post" action="{{ review_url }}" class="review-form">
+    <h4>{% if own_review %}レビューを更新{% else %}レビューを投稿{% endif %}</h4>
+    <fieldset class="review-star-rating">
+      <legend>評価</legend>
+      <div class="review-star-options">
+      {% for rating in range(5, 0, -1) %}
+        <input
+          class="review-star-input"
+          id="reviewRating{{ rating }}"
+          type="radio"
+          name="rating"
+          value="{{ rating }}"
+          aria-label="{{ rating }}つ星"
+          required
+          {% if own_review and own_review.rating == rating %}checked{% endif %}
+        >
+        <label class="review-star" for="reviewRating{{ rating }}" aria-hidden="true"></label>
+      {% endfor %}
+      </div>
+    </fieldset>
+    <label for="reviewComment">レビュー内容（1〜1000文字）</label>
+    <textarea id="reviewComment" name="comment" maxlength="1000" required>{{ own_review.comment if own_review else "" }}</textarea>
+    <button type="submit" class="review-button">{% if own_review %}更新する{% else %}投稿する{% endif %}</button>
+  </form>
+  {% elif session.get("account_type") == "restaurant" %}
+  <button type="button" class="review-button" disabled title="店舗アカウントでは利用できません">レビューを投稿</button>
+  <p class="auth-required-note">店舗アカウントではレビューを投稿できません。</p>
+  {% else %}
+  <p class="review-login-prompt">
+    レビューを投稿するには<a href="{{ url_for('auth.login') }}">一般ユーザーでログイン</a>してください。
+  </p>
+  {% endif %}
+</section>
+{% endmacro %}

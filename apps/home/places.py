@@ -92,25 +92,29 @@ def places_request(url, fields=None, payload=None):
         raise PlacesAPIError(error.code, reasons) from None
 
 
-def search_places(query, budget, latitude, longitude):
+def search_places(query, budget, latitude, longitude, unlimited=False):
     payload = {
         "textQuery": query,
         "languageCode": "ja",
-        "regionCode": "JP",
         "pageSize": 10,
-        "locationBias": {
+    }
+    if not unlimited:
+        payload["regionCode"] = "JP"
+        payload["locationBias"] = {
             "circle": {
                 "center": {"latitude": latitude, "longitude": longitude},
                 "radius": float(SEARCH_RADIUS_METERS),
             }
-        },
-    }
+        }
     if budget is not None:
         payload["priceLevels"] = budget_price_levels(budget)
+    fields = (
+        "places.id,places.displayName,places.formattedAddress,places.rating,"
+        "places.location,places.priceLevel,places.googleMapsUri,places.attributions"
+    )
     data = places_request(
         "https://places.googleapis.com/v1/places:searchText",
-        "places.id,places.displayName,places.formattedAddress,places.rating,"
-        "places.location,places.priceLevel,places.googleMapsUri,places.attributions",
+        fields,
         payload,
     )
     if not isinstance(data, dict) or not isinstance(data.get("places", []), list):
@@ -119,11 +123,25 @@ def search_places(query, budget, latitude, longitude):
     for item in data.get("places", []):
         place = parse_place(item, latitude, longitude)
         distance = place["distance"]
-        if distance is not None and distance <= SEARCH_RADIUS_METERS:
+        if distance is not None and (unlimited or distance <= SEARCH_RADIUS_METERS):
             place["distance_exact"] = distance
             place["distance"] = round(distance)
             places.append(place)
     return places
+
+
+def search_place_by_id(place_id, latitude, longitude):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", place_id):
+        raise ValueError("Invalid place ID")
+    fields = "id,displayName,formattedAddress,rating,priceLevel,googleMapsUri,attributions,location"
+    data = places_request(
+        "https://places.googleapis.com/v1/places/" + quote(place_id, safe="") + "?languageCode=ja&regionCode=JP",
+        fields,
+    )
+    place = parse_place(data, latitude, longitude)
+    if place["id"] != place_id:
+        raise ValueError("Places API returned a different place ID")
+    return place
 
 
 def place_details(place_id):
@@ -197,6 +215,56 @@ def photo_url(photo):
     if not url:
         raise ValueError("Places API returned an invalid photo URL")
     return url
+
+
+def geocode_address(address):
+    """
+    住所から緯度経度を取得するGeocoding API呼び出し
+    
+    Args:
+        address: 住所文字列
+        
+    Returns:
+        {"latitude": float, "longitude": float} または None (失敗時)
+    """
+    if not isinstance(address, str) or not address.strip():
+        return None
+    
+    api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
+    if not api_key:
+        return None
+    
+    try:
+        url = (
+            "https://maps.googleapis.com/maps/api/geocode/json?"
+            f"address={quote(address)}&language=ja&region=JP&key={api_key}"
+        )
+        with urlopen(url, timeout=10) as response:
+            data = json.load(response)
+    except (HTTPError, OSError, ValueError, UnicodeError):
+        return None
+    
+    if not isinstance(data, dict) or data.get("status") != "OK":
+        return None
+    
+    results = data.get("results", [])
+    if not results or not isinstance(results, list):
+        return None
+    
+    location = results[0].get("geometry", {}).get("location")
+    if not isinstance(location, dict):
+        return None
+    
+    lat = location.get("lat")
+    lng = location.get("lng")
+    
+    if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)):
+        return None
+    
+    if not math.isfinite(lat) or not math.isfinite(lng) or abs(lat) > 90 or abs(lng) > 180:
+        return None
+    
+    return {"latitude": lat, "longitude": lng}
 
 
 def parse_place(item, latitude=None, longitude=None):

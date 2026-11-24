@@ -1,4 +1,7 @@
 
+import re
+import secrets
+
 from flask import (
     Blueprint,
     redirect,
@@ -158,7 +161,18 @@ def signup_restaurant():
     return render_template("auth/signin_restaurant.html")
 
 
-@auth.get("/logout")
+@auth.route("/logout", methods=["GET", "POST"])
 def logout():
-    session.clear()
-    return redirect(url_for("auth.login"))
+    if not session.get("email"):
+        return redirect(url_for("auth.login"))
+    if request.method == "POST":
+        token = request.form.get("csrf_token", "")
+        expected = session.get("logout_csrf")
+        if not isinstance(expected, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", token) or not secrets.compare_digest(token, expected):
+            return "ログアウトの確認期限が切れました。もう一度お試しください。", 400
+        session.clear()
+        return redirect(url_for("auth.login"))
+    if "logout_csrf" not in session:
+        session["logout_csrf"] = secrets.token_urlsafe(32)
+    response = render_template("auth/logout_confirm.html", csrf_token=session["logout_csrf"])
+    return response, 200, {"Cache-Control": "no-store"}

@@ -97,6 +97,19 @@ class RecipePhoto(db.Model):
     data = db.Column(db.LargeBinary, nullable=False)
 
 
+class RecipeFavorite(db.Model):
+    __tablename__ = "recipe_favorite"
+    __table_args__ = (
+        db.UniqueConstraint("account_id", "recipe_id", name="uq_recipe_favorite_account_recipe"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("account.id"), nullable=False, index=True)
+    recipe_id = db.Column(db.Integer, db.ForeignKey("recipe_list.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    recipe = db.relationship("Recipe_list")
+
+
 # ============================================
 # レシピ閲覧履歴テーブル
 # ============================================

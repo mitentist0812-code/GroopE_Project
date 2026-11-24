@@ -71,8 +71,9 @@
         <button type="button" id="add-step-button" class="add-step-button">＋ 工程を追加</button>
       </fieldset>
 
-      <button type="submit" class="submit-button" {% if not session.get("email") %}disabled{% endif %}>レシピを投稿する</button>
-      {% if not session.get("email") %}<p class="auth-required-note">レシピを投稿するにはログインしてください。</p>{% endif %}
+      <button type="submit" class="submit-button" {% if not session.get("email") or session.get("account_type") == "restaurant" %}disabled{% endif %}>レシピを投稿する</button>
+      {% if session.get("account_type") == "restaurant" %}<p class="auth-required-note">店舗アカウントではレシピを投稿できません。</p>
+      {% elif not session.get("email") %}<p class="auth-required-note">レシピを投稿するにはログインしてください。</p>{% endif %}
       <p id="recipe-post-message" class="recipe-post-message" role="status" hidden></p>
     </form>
 {% endblock %}

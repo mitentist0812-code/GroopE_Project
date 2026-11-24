@@ -21,49 +21,46 @@
 		</div>
 
 		<section id="shop-history-panel" class="history-panel active" role="tabpanel" aria-labelledby="shop-history-tab">
+			{% if place_lookup_error %}
+			<p role="alert">一部の店舗情報を取得できませんでした。時間をおいて再度ご確認ください。</p>
+			{% endif %}
 			<div class="history-list" aria-label="店舗の閲覧履歴">
+			{% for entry in place_history %}
+			{% set place = places[entry.place_id] %}
 			<article class="history-item">
 				<div class="history-header">
-					<h3><span class="history-number">01</span>店舗閲覧</h3>
-					<time class="history-date" datetime="2026-08-25">
-						2026年8月25日 12:30
+					<h3><span class="history-number">{{ "%02d"|format(loop.index) }}</span>店舗閲覧</h3>
+					<time class="history-date" datetime="{{ entry.viewed_at.isoformat() }}">
+						{{ entry.viewed_at.strftime("%Y年%m月%d日 %H:%M") }}
 					</time>
 				</div>
 				<div class="chosen-shop">
 					<div>
 						<div class="shop-title">
-							<h4 class="shop-name">元気ラーメン</h4>
+							<h4 class="shop-name">{{ place.name }}</h4>
+							{% if entry.place_id in favorite_place_ids %}
 							<span class="favorite-mark" aria-label="お気に入り">♥</span>
+							{% endif %}
 						</div>
-						<p class="shop-meta">評価 4.3　・　約450m　・　1,000～1,500円</p>
+						<p class="shop-meta">{{ place.address }}</p>
+						{% for attribution in place.attributions %}
+						<p class="shop-meta">情報提供：{% if attribution.url %}<a href="{{ attribution.url }}" target="_blank" rel="noopener noreferrer">{{ attribution.name }}</a>{% else %}{{ attribution.name }}{% endif %}</p>
+						{% endfor %}
 					</div>
-
+					{% if entry.place_id == "sample-restaurant" %}
 					<a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">店舗詳細</a>
+					{% else %}
+					<a href="{{ url_for('restaurants.place_detail', place_id=entry.place_id) }}" class="detail-button">店舗詳細</a>
+					{% endif %}
 				</div>
 			</article>
-
-			<article class="history-item">
-				<div class="history-header">
-					<h3><span class="history-number">02</span>店舗閲覧</h3>
-					<time class="history-date" datetime="2026-08-24">2026年8月24日 19:10</time>
-				</div>
-				<div class="chosen-shop">
-					<div><h4 class="shop-name">季節の定食屋</h4><p class="shop-meta">評価 4.5　・　約700m　・　800～1,000円</p></div>
-					<a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">店舗詳細</a>
-				</div>
-			</article>
-
-			<article class="history-item">
-				<div class="history-header">
-					<h3><span class="history-number">03</span>店舗閲覧</h3>
-					<time class="history-date" datetime="2026-08-22">2026年8月22日 18:45</time>
-				</div>
-				<div class="chosen-shop">
-					<div><h4 class="shop-name">街角ダイニング</h4><p class="shop-meta">評価 4.2　・　約1.2km　・　1,500～2,000円</p></div>
-					<a href="{{ url_for('restaurants.restaurant_detail') }}" class="detail-button">店舗詳細</a>
-				</div>
-			</article>
+			{% else %}
+			<p class="history-empty">閲覧した店舗はまだありません。</p>
+			{% endfor %}
 			</div>
+			{% if has_google_places %}
+			<div class="google-maps-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>
+			{% endif %}
 		</section>
 
 		<section id="recipe-history-panel" class="history-panel" role="tabpanel" aria-labelledby="recipe-history-tab" hidden>

@@ -1,21 +1,52 @@
 import json
 import math
 import os
+import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from flask import Blueprint, current_app, jsonify, render_template, request
-from sqlalchemy import or_
+from flask import Blueprint, current_app, jsonify, render_template, request, session
+from sqlalchemy import func, or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from apps.auth.models import Account
+from apps.extensions import db
 from apps.recipes.models import Recipe_list, RecipePhoto
-from .places import SEARCH_RADIUS_METERS, PlacesAPIError, search_places
+from apps.restaurants.local import local_place_id
+from apps.restaurants.models import RestaurantLocation, RestaurantMenu
+from apps.review_models import ContentReview
+from .places import SEARCH_RADIUS_METERS, PlacesAPIError, distance_meters, search_places, search_place_by_id
 
 home = Blueprint("home", __name__, template_folder="templates")
 SEARCH_RADII_KM = ("1", "3", "5", "10")
 DEFAULT_SEARCH_RADIUS_KM = str(SEARCH_RADIUS_METERS // 1000)
+
+
+def _menu_search_key(value):
+    return unicodedata.normalize("NFKC", value).casefold().strip()
+
+
+def _timed_search_places(logger, request_number, request_count, query, budget, latitude, longitude, unlimited=False):
+    started_at = time.perf_counter()
+    succeeded = False
+    try:
+        if unlimited:
+            result = search_places(query, budget, latitude, longitude, unlimited=True)
+        else:
+            result = search_places(query, budget, latitude, longitude)
+        succeeded = True
+        return result
+    finally:
+        logger.info(
+            "search_timing stage=places request=%d/%d duration_s=%.3f outcome=%s",
+            request_number,
+            request_count,
+            time.perf_counter() - started_at,
+            "success" if succeeded else "error",
+        )
 
 
 @home.get("/")
@@ -61,6 +92,8 @@ def nearby_places():
 
 @home.route("/recipe-results", methods=["GET", "POST"])
 def recipe_results():
+    if session.get("account_type") == "restaurant":
+        return "店舗アカウントではレシピ検索を利用できません。", 403
     form = request.form if request.method == "POST" else request.args
     keyword = form.get("keyword", "").strip()
     if not keyword or len(keyword) > 200:
@@ -89,15 +122,21 @@ def results():
     - キーワード検索: ユーザーキーワードで店舗検索
     - 入力検証、API エラー処理、距離でのソートを実施
     """
+    request_started_at = time.perf_counter()
     form = request.form if request.method == "POST" else request.args
     mood = form.get("dishName", "").strip()
     keyword = form.get("keyword", "").strip()
     budget = form.get("budget", "").strip()
     genre = form.get("genre", "").strip()
+    radius = form.get("radius", DEFAULT_SEARCH_RADIUS_KM)
+    if radius == "country":
+        radius = "unlimited"
     recommendation = None
     error = None
     search_error = None
     places_error = None
+    menu_search_error = None
+    menu_location_error = False
     places = []
     is_mood_search = "dishName" in form
     is_free_search = "keyword" in form and not is_mood_search
@@ -121,6 +160,9 @@ def results():
         elif budget and (not budget.isascii() or not budget.isdecimal() or len(budget) > 9):
             search_error = "予算は0以上の整数で入力してください。"
             status = 400
+        elif radius not in (*SEARCH_RADII_KM, "unlimited"):
+            search_error = "検索距離を選択し直してください。"
+            status = 400
         else:
             # 位置情報の検証
             try:
@@ -131,17 +173,26 @@ def results():
             except ValueError:
                 places_error = "店舗検索には現在地の取得が必要です。ホーム画面から位置情報を許可して再検索してください。"
                 status = 400
-            else:
+            if status == 200:
                 genre_names = {"和": "和食", "洋": "洋食", "中": "中華", "その他": "その他"}
                 genre_suffix = " " + genre_names[genre] if genre else ""
                 if is_mood_search:
+                    ai_started_at = time.perf_counter()
+                    ai_succeeded = False
                     try:
                         recommendation = suggest_searches(mood, genre)
+                        ai_succeeded = True
                         queries.extend(item["name"] for item in recommendation)
                     except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
                         current_app.logger.exception("Ollamaによる検索語の提案に失敗しました")
                         error = "AIの提案を取得できませんでした。入力文のみで店舗を検索します。Ollamaとモデルが利用できるか確認してください。"
                         status = 503
+                    finally:
+                        current_app.logger.info(
+                            "search_timing stage=ollama duration_s=%.3f outcome=%s",
+                            time.perf_counter() - ai_started_at,
+                            "success" if ai_succeeded else "error",
+                        )
                     queries.append(mood + genre_suffix)
                     queries = list(dict.fromkeys(queries))
                 else:
@@ -150,18 +201,33 @@ def results():
             if queries:
                 seen = set()
                 search_budget = int(budget) if budget else None
+                places_started_at = time.perf_counter()
+                logger = current_app.logger
                 with ThreadPoolExecutor(max_workers=3) as executor:
                     futures = []
                     fatal_error = False
                     for index, query in enumerate(queries):
                         if index == 1:
                             futures = [
-                                executor.submit(search_places, remaining, search_budget, latitude, longitude)
-                                for remaining in queries[1:]
+                                executor.submit(
+                                    _timed_search_places,
+                                    logger,
+                                    request_number,
+                                    len(queries),
+                                    remaining,
+                                    search_budget,
+                                    latitude,
+                                    longitude,
+                                    radius == "unlimited",
+                                )
+                                for request_number, remaining in enumerate(queries[1:], start=2)
                             ]
                         try:
                             if index == 0:
-                                found = search_places(query, search_budget, latitude, longitude)
+                                found = _timed_search_places(
+                                    logger, index + 1, len(queries), query,
+                                    search_budget, latitude, longitude, radius == "unlimited",
+                                )
                             else:
                                 found = futures[index - 1].result()
                         except PlacesAPIError as exc:
@@ -194,20 +260,147 @@ def results():
                                 places.append(place)
                 # 距離でソート（距離情報がない場合は最後）
                 places.sort(key=lambda place: place["distance"] if place["distance"] is not None else float("inf"))
+                logger.info(
+                    "search_timing stage=places_batch requests=%d duration_s=%.3f",
+                    len(queries),
+                    time.perf_counter() - places_started_at,
+                )
 
-    if places:
-        place_ids = [place["id"] for place in places]
-        registered_place_ids = {
-            place_id
-            for (place_id,) in Account.query.with_entities(Account.place_id).filter(
+    if queries:
+        try:
+            registered_restaurants = Account.query.filter(
                 Account.account_type == "restaurant",
-                Account.place_id.in_(place_ids),
+                Account.place_id.isnot(None),
+                Account.place_id != "",
             ).all()
-        }
-        for place in places:
-            place["account_registered"] = place["id"] in registered_place_ids
+            registered_place_ids = {restaurant.place_id for restaurant in registered_restaurants}
+            review_rows = (
+                db.session.query(
+                    ContentReview.place_id,
+                    func.avg(ContentReview.rating),
+                    func.count(ContentReview.id),
+                )
+                .filter(ContentReview.place_id.isnot(None))
+                .group_by(ContentReview.place_id)
+                .all()
+            )
+            ratings = {
+                place_id: (average, count) for place_id, average, count in review_rows
+            }
+            menu_rows = (
+                db.session.query(Account.place_id, RestaurantMenu.name, RestaurantMenu.price)
+                .join(RestaurantMenu, RestaurantMenu.restaurant_id == Account.id)
+                .filter(
+                    Account.account_type == "restaurant",
+                    Account.place_id.isnot(None),
+                    Account.place_id != "",
+                )
+                .all()
+            )
+            local_menu_rows = (
+                db.session.query(Account, RestaurantLocation, RestaurantMenu)
+                .join(RestaurantLocation, RestaurantLocation.restaurant_id == Account.id)
+                .outerjoin(RestaurantMenu, RestaurantMenu.restaurant_id == Account.id)
+                .filter(
+                    Account.account_type == "restaurant",
+                    or_(Account.place_id.is_(None), Account.place_id == ""),
+                )
+                .all()
+            )
+        except SQLAlchemyError:
+            db.session.rollback()
+            current_app.logger.exception("店舗メニューの検索に失敗しました")
+            menu_search_error = "店舗メニューを検索できませんでした。時間をおいて再度お試しください。"
+            status = 503
+        else:
+            term = _menu_search_key(mood if is_mood_search else keyword)
+            matching_menus = {}
+            for place_id, name, price in menu_rows:
+                menu_name = _menu_search_key(name)
+                if (
+                    term and menu_name
+                    and (term in menu_name or menu_name in term)
+                    and (not budget or price <= int(budget))
+                ):
+                    matching_menus.setdefault(place_id, []).append({"name": name, "price": price})
 
-    return render_template(
+            places_by_id = {place["id"]: place for place in places}
+            local_places = {}
+            for account, location, menu in local_menu_rows:
+                store_name = _menu_search_key(account.name)
+                name_match = bool(term and store_name and (term in store_name or store_name in term))
+                menu_name = _menu_search_key(menu.name) if menu else ""
+                menu_match = bool(term and menu_name and (term in menu_name or menu_name in term))
+                if not name_match and not menu_match:
+                    continue
+                if budget and (menu is None or menu.price > int(budget)):
+                    continue
+                place_id = local_place_id(account.id)
+                distance = distance_meters(latitude, longitude, {
+                    "latitude": location.latitude, "longitude": location.longitude,
+                })
+                if distance is None or (radius != "unlimited" and distance > SEARCH_RADIUS_METERS):
+                    continue
+                if place_id not in local_places:
+                    local_places[place_id] = {
+                        "id": place_id, "name": account.name, "address": account.address or "",
+                        "distance_exact": distance, "distance": round(distance),
+                        "rating": None, "price": "不明", "url": "", "attributions": [],
+                        "account_registered": True, "local_restaurant": True, "matching_menus": [],
+                    }
+                if menu_match:
+                    local_places[place_id]["matching_menus"].append({"name": menu.name, "price": menu.price})
+            places.extend(local_places.values())
+            for place in places:
+                if not place.get("local_restaurant"):
+                    place["account_registered"] = place["id"] in registered_place_ids
+                    place["matching_menus"] = matching_menus.get(place["id"], [])
+                if place["id"] in ratings:
+                    place["system_rating"], place["system_rating_count"] = ratings[place["id"]]
+
+            missing_place_ids = [
+                place_id for place_id in matching_menus if place_id not in places_by_id
+            ]
+            if missing_place_ids:
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    futures = {
+                        place_id: executor.submit(search_place_by_id, place_id, latitude, longitude)
+                        for place_id in missing_place_ids
+                    }
+                    for place_id, future in futures.items():
+                        try:
+                            place = future.result()
+                        except PlacesAPIError as exc:
+                            current_app.logger.error(
+                                "店舗メニューの店舗取得に失敗しました: HTTP %s, reasons: %s",
+                                exc.status_code,
+                                ", ".join(exc.reasons) or "unknown",
+                            )
+                            menu_search_error = "一部の店舗メニューの店舗情報を取得できませんでした。"
+                            status = 503
+                            continue
+                        except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
+                            current_app.logger.exception("店舗メニューの店舗取得に失敗しました")
+                            menu_search_error = "一部の店舗メニューの店舗情報を取得できませんでした。"
+                            status = 503
+                            continue
+                        distance = place["distance"]
+                        if distance is None:
+                            current_app.logger.warning("店舗メニューの店舗に位置情報がありません")
+                            menu_location_error = True
+                            continue
+                        if radius != "unlimited" and distance > SEARCH_RADIUS_METERS:
+                            continue
+                        place["distance_exact"] = distance
+                        place["distance"] = round(distance)
+                        place["account_registered"] = True
+                        place["matching_menus"] = matching_menus[place_id]
+                        if place_id in ratings:
+                            place["system_rating"], place["system_rating_count"] = ratings[place_id]
+                        places.append(place)
+            places.sort(key=lambda place: place["distance"] if place["distance"] is not None else float("inf"))
+
+    response = render_template(
         "home/results.html",
         mood=mood,
         keyword=keyword,
@@ -220,10 +413,23 @@ def results():
         search_error=search_error,
         places=places,
         places_error=places_error,
+        menu_search_error=menu_search_error,
+        menu_location_error=menu_location_error,
+        radius=radius,
+        latitude=latitude,
+        longitude=longitude,
+        has_google_places=any(not place.get("local_restaurant") for place in places),
         is_mood_search=is_mood_search,
         is_places_search=is_places_search,
         places_searched=bool(queries),
-    ), status
+    )
+    if is_places_search:
+        current_app.logger.info(
+            "search_timing stage=total duration_s=%.3f status=%d",
+            time.perf_counter() - request_started_at,
+            status,
+        )
+    return response, status
 
 
 def suggest_searches(mood, genre):

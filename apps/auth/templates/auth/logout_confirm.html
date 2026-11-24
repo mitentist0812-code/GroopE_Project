@@ -1,0 +1,13 @@
+{% extends "shared/base.html" %}
+
+{% block title %}ログアウト確認 - 一飯一会{% endblock %}
+{% block content %}
+<section aria-labelledby="logout-confirm-title">
+  <h2 id="logout-confirm-title">ログアウトしますか？</h2>
+  <form method="post" action="{{ url_for('auth.logout') }}" id="logout-confirm-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <a href="{{ url_for('home.top') }}" id="logout-cancel" class="button button-secondary">いいえ</a>
+    <button type="submit" class="button button-primary">はい</button>
+  </form>
+</section>
+{% endblock %}

@@ -39,8 +39,8 @@
             <nav id="sidebar" aria-label="メインメニュー">
                 <ul class="sidebar-menu">
                     <li><a href="{{ url_for('home.top') }}" {% if active_nav == "top" %}id="current" aria-current="page"{% endif %}>ホーム</a></li>
-                    <li><a {% if session.get("email") %}href="{{ url_for('nutrition.calorie') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %} {% if active_nav == "calorie" %}id="current" aria-current="page"{% endif %}>カロリー計算</a></li>
-                    <li><a {% if session.get("email") %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="ログインすると利用できます" class="auth-disabled-control"{% endif %} {% if active_nav == "post_recipe" %}id="current" aria-current="page"{% endif %}>レシピ投稿</a></li>
+                    <li><a {% if session.get("email") and session.get("account_type") != "restaurant" %}href="{{ url_for('nutrition.calorie') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}" class="auth-disabled-control"{% endif %} {% if active_nav == "calorie" %}id="current" aria-current="page"{% endif %}>カロリー計算</a></li>
+                    <li><a {% if session.get("email") and session.get("account_type") != "restaurant" %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}" class="auth-disabled-control"{% endif %} {% if active_nav == "post_recipe" %}id="current" aria-current="page"{% endif %}>レシピ投稿</a></li>
                     {% if session.get("email") %}
                         {% if session.get("account_type") == "restaurant" %}
                     <li><a href="{{ url_for('restaurants.restaurant') }}" {% if active_nav == "restaurant" %}id="current" aria-current="page"{% endif %}>店舗管理</a></li>
