@@ -76,6 +76,29 @@
   {% endfor %}
   {% if not local_place %}<div class="google-maps-detail-attribution"><img src="{{ url_for('static', filename='img/google-maps-attribution.svg') }}" alt="Google Maps"></div>{% endif %}
 </section>
+{% if user_allergies or user_settings_error %}
+<section class="allergen-panel allergen-warning" aria-labelledby="personal-allergen-title" role="alert">
+  <h3 id="personal-allergen-title">設定したアレルギーの確認</h3>
+  {% set matching_menus = store_menu_matches|selectattr("matching_user_allergens")|list %}
+  {% if user_settings_error %}
+  <p>保存済みのアレルギー設定を取得できませんでした。店舗に直接確認してください。</p>
+  {% elif matching_menus %}
+  <p>設定中のアレルギー（{{ user_allergies|join("、") }}）に該当する可能性のあるメニューがあります。</p>
+  <ul>
+    {% for menu in matching_menus %}
+    <li><strong>{{ menu.name }}</strong>：{{ menu.matching_user_allergens|join("、") }}</li>
+    {% endfor %}
+  </ul>
+  {% elif store_menu_error or allergen_model_error or not store_menus_available %}
+  <p>設定中のアレルギー（{{ user_allergies|join("、") }}）について、登録メニューから確認できませんでした。必ず店舗にお問い合わせください。</p>
+  {% else %}
+  <p>登録メニュー名から設定中のアレルギー候補は検出されませんでしたが、安全を保証するものではありません。必ず店舗に確認してください。</p>
+  {% endif %}
+  {% if unsupported_user_allergies %}
+  <p>{{ unsupported_user_allergies|join("、") }}は現在の推定モデルの判定対象外です。登録メニューに該当していても検出できないため、必ず店舗に確認してください。</p>
+  {% endif %}
+</section>
+{% endif %}
 <section
   class="allergen-panel {% if store_menu_error or allergen_model_error or store_menu_matches %}allergen-warning{% else %}allergen-info{% endif %}"
   aria-labelledby="store-allergen-title"
@@ -141,6 +164,16 @@
     <div class="info-item"><span class="info-label">予算</span><span class="info-value">1,000～1,500円</span></div>
   </div>
 </section>
+{% if user_allergies or user_settings_error %}
+<section class="allergen-panel allergen-warning" aria-labelledby="personal-allergen-title" role="alert">
+  <h3 id="personal-allergen-title">設定したアレルギーの確認</h3>
+  {% if user_settings_error %}
+  <p>保存済みのアレルギー設定を取得できませんでした。店舗に直接確認してください。</p>
+  {% else %}
+  <p>このサンプル店舗にはメニュー情報がないため、設定中のアレルギー（{{ user_allergies|join("、") }}）を確認できません。店舗に直接確認してください。</p>
+  {% endif %}
+</section>
+{% endif %}
 <section class="allergen-panel allergen-info" aria-labelledby="sample-allergen-title" role="status">
   <h3 id="sample-allergen-title">アレルゲン候補</h3>
   <p>サンプル店舗のメニュー情報がないため、アレルゲン候補を確認できません。店舗に直接お問い合わせください。</p>
@@ -177,22 +210,4 @@
   }
 </script>
 {% endif %}
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = document.querySelector("#sidebar");
-    const toggle = document.querySelector(".sidebar-toggle");
-    if (!sidebar || !toggle) return;
-    const setOpen = (open) => {
-      sidebar.classList.toggle("is-open", open);
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
-    };
-    toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
-    sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
-    document.addEventListener("click", (event) => {
-      if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
-      if (!sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
-    });
-  });
-</script>
 {% endblock %}

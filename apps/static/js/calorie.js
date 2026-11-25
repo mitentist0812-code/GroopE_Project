@@ -15,9 +15,76 @@ document.addEventListener("DOMContentLoaded", () => {
   const total = document.querySelector("#calorie-total");
   const addButton = document.querySelector("#add-ingredient");
   const editButton = document.querySelector("#edit-ingredients");
+  const historyStatus = document.querySelector("#history-save-status");
+  const retryHistoryButton = document.querySelector("#retry-history-save");
   const isAuthenticated = estimateButton.dataset.authenticated === "true";
   let previewUrl = "";
   let editing = false;
+  let historyState = null;
+
+  function historySnapshot(state) {
+    const ingredients = [...list.querySelectorAll(".calorie-ingredient")].map((row) => {
+      const food = row.querySelector("select");
+      const grams = row.querySelector('input[type="number"]');
+      return {
+        name: row.querySelector('input[type="search"]').value.trim(),
+        grams: grams.validity.valid && grams.value !== "" ? Number(grams.value) : null,
+        food_id: food.value || null,
+      };
+    });
+    return { dish: state.dish, save_key: state.saveKey, ingredients };
+  }
+
+  async function saveHistory(state) {
+    if (state.saving || !state.pending) return;
+    state.saving = true;
+    if (state === historyState) {
+      photoInput.disabled = true;
+      changePhotoButton.disabled = true;
+      estimateButton.disabled = true;
+      historyStatus.textContent = "履歴を保存しています。";
+      retryHistoryButton.hidden = true;
+    }
+    while (state.pending) {
+      const snapshot = state.pending;
+      state.pending = null;
+      try {
+        const url = state.id ? `${estimateButton.dataset.historyUrl}/${state.id}` : estimateButton.dataset.historyUrl;
+        const response = await fetch(url, {
+          method: state.id ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": estimateButton.dataset.csrfToken },
+          body: JSON.stringify(snapshot),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "履歴を保存できませんでした。");
+        state.id = data.id;
+      } catch (error) {
+        state.pending = state.pending || snapshot;
+        state.saving = false;
+        if (state === historyState) {
+          historyStatus.textContent = error instanceof Error ? error.message : "履歴を保存できませんでした。";
+          retryHistoryButton.hidden = false;
+          photoInput.disabled = false;
+          changePhotoButton.disabled = false;
+          estimateButton.disabled = !isAuthenticated || !photoInput.files[0];
+        }
+        return;
+      }
+    }
+    state.saving = false;
+    if (state === historyState) {
+      historyStatus.textContent = "履歴に保存しました。";
+      photoInput.disabled = false;
+      changePhotoButton.disabled = false;
+      estimateButton.disabled = !isAuthenticated || !photoInput.files[0];
+    }
+  }
+
+  function queueHistorySave() {
+    if (!historyState) return;
+    historyState.pending = historySnapshot(historyState);
+    saveHistory(historyState);
+  }
 
   function updateTotal() {
     const rows = [...list.querySelectorAll(".calorie-ingredient")];
@@ -45,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       total.textContent = `推定合計：約${Math.round(calories)} kcal`;
     }
+    queueHistorySave();
   }
 
   function setEditing(value) {
@@ -174,6 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
     preview.hidden = true;
     photoPicker.hidden = false;
     results.hidden = true;
+    historyState = null;
+    historyStatus.textContent = "";
+    retryHistoryButton.hidden = true;
     resultMessage.textContent = "写真を選択すると、ここに推定結果が表示されます。";
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = "";
@@ -234,21 +305,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       list.replaceChildren();
+      historyState = null;
       dishName.textContent = `料理の候補：${data.dish}`;
       resultMessage.textContent = "材料一覧を開いて、推定した材料と食品を確認してください。";
       setEditing(false);
       ingredientDetails.open = false;
       results.hidden = false;
       data.ingredients.forEach((item) => addIngredient(item.name, item.grams, item.food));
+      historyState = { dish: data.dish, saveKey: data.history_key, id: null, pending: null, saving: false };
+      queueHistorySave();
     } catch (error) {
       resultMessage.textContent = error instanceof Error ? error.message : "画像解析に失敗しました。";
     } finally {
-      photoInput.disabled = false;
-      changePhotoButton.disabled = false;
-      estimateButton.disabled = !isAuthenticated || !photoInput.files[0];
+      const saving = Boolean(historyState && historyState.saving);
+      photoInput.disabled = saving;
+      changePhotoButton.disabled = saving;
+      estimateButton.disabled = saving || !isAuthenticated || !photoInput.files[0];
     }
   });
 
   addButton.addEventListener("click", () => addIngredient());
   editButton.addEventListener("click", () => setEditing(!editing));
+  retryHistoryButton.addEventListener("click", () => {
+    if (historyState) saveHistory(historyState);
+  });
 });

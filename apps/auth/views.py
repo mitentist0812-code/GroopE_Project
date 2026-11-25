@@ -24,6 +24,17 @@ auth = Blueprint(
 )
 
 
+def _logout_csrf_token():
+    if "logout_csrf" not in session:
+        session["logout_csrf"] = secrets.token_urlsafe(32)
+    return session["logout_csrf"]
+
+
+@auth.app_context_processor
+def logout_template_helpers():
+    return {"logout_csrf_token": _logout_csrf_token}
+
+
 def _create_account(email, name, password, account_type, address=None, phone=None):
     account = Account(
         email=email,
@@ -172,7 +183,5 @@ def logout():
             return "ログアウトの確認期限が切れました。もう一度お試しください。", 400
         session.clear()
         return redirect(url_for("auth.login"))
-    if "logout_csrf" not in session:
-        session["logout_csrf"] = secrets.token_urlsafe(32)
-    response = render_template("auth/logout_confirm.html", csrf_token=session["logout_csrf"])
+    response = render_template("auth/logout_confirm.html", csrf_token=_logout_csrf_token())
     return response, 200, {"Cache-Control": "no-store"}

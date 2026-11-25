@@ -1720,6 +1720,7 @@ body.page-setting .setting-control {
 			font: inherit;
 		}
 body.page-setting .setting-control:focus { outline: 2px solid rgba(217, 93, 57, 0.25); border-color: var(--accent); }
+body.page-setting .setting-control:disabled { background-color: #f0f0f0; color: #666; cursor: not-allowed; }
 body.page-setting .toggle { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 body.page-setting .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 body.page-setting .food-checkboxes {
@@ -2463,19 +2464,34 @@ body.page-top #content select {
             border-radius: 4px;
             font: inherit;
         }
-body.page-top .mood-section {
-            width: 100%;
-            margin: 0 0 32px;
-            padding: 24px;
-            background-color: var(--surface);
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(36, 36, 36, 0.04);
+body.page-top .mood-picker {
+            margin-top: 12px;
+        }
+body.page-top .mood-picker summary {
+            display: inline-block;
+            padding: 10px 14px;
+            color: var(--accent-dark);
+            background: #fffaf6;
+            border: 1px solid #dca28d;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+body.page-top .mood-picker summary::after {
+            content: " ▾";
+        }
+body.page-top .mood-picker[open] summary::after {
+            content: " ▴";
+        }
+body.page-top .mood-picker summary:focus-visible {
+            outline: 3px solid rgba(217, 93, 57, 0.35);
+            outline-offset: 3px;
         }
 body.page-top .mood-list {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
+            margin-top: 12px;
         }
 body.page-top .mood-card {
             display: flex;
@@ -2679,7 +2695,6 @@ body.page-top .recipe-cards {
 
 @media (max-width: 640px) {
     body.page-top #content form.search-panel {
-        display: block;
         padding: 22px 2px 2px;
     }
 
@@ -6073,6 +6088,10 @@ body.page-mypage .sidebar-toggle span {
     border-radius: 2px;
 }
 
+.sidebar-account-name {
+    display: none;
+}
+
 body.page-detail #content,
 body.page-favorite #content,
 body.page-history #content,
@@ -6091,6 +6110,19 @@ body.page-calorie #content {
 }
 
 @media (max-width: 760px) {
+    .has-sidebar #header .account-name {
+        display: none;
+    }
+
+    .has-sidebar #sidebar > ul.sidebar-menu > li.sidebar-account-name {
+        display: block;
+        padding: 10px 12px;
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: bold;
+        overflow-wrap: anywhere;
+    }
+
     body.page-detail .sidebar-toggle,
     body.page-favorite .sidebar-toggle,
     body.page-history .sidebar-toggle,

@@ -3,6 +3,7 @@ import hmac
 import json
 import math
 import os
+import re
 import secrets
 import unicodedata
 from pathlib import Path
@@ -10,14 +11,18 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from flask import Blueprint, current_app, jsonify, render_template, request, session
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from apps.auth.models import Account
+from apps.extensions import db
+from .models import CalorieHistory
 
 nutrition = Blueprint("nutrition", __name__, template_folder="templates")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_INGREDIENTS = 20
 FOODS = json.loads((Path(__file__).parent / "food_data.json").read_text(encoding="utf-8"))
+FOODS_BY_ID = {food["id"]: food for food in FOODS}
 
 
 def _authentication_error(login_message="ログインしてください。"):
@@ -179,4 +184,75 @@ def analyze_calorie_photo():
         return jsonify(error="画像解析に失敗しました。設定を確認し、時間をおいて再度お試しください。"), 503
     for item in result["ingredients"]:
         item["food"] = _match_food(item["name"])
+    if result["is_food"]:
+        result["history_key"] = secrets.token_urlsafe(24)
     return jsonify(result)
+
+
+@nutrition.route("/calorie/history", defaults={"history_id": None}, methods=["POST"])
+@nutrition.route("/calorie/history/<int:history_id>", methods=["PUT"])
+def save_calorie_history(history_id):
+    request.max_content_length = 65536
+    error = _authentication_error("カロリー計算の履歴を保存するにはログインしてください。")
+    if error:
+        return error
+    expected = session.get("calorie_csrf", "")
+    token = request.headers.get("X-CSRF-Token", "")
+    if not isinstance(expected, str) or not expected or not token.isascii() or not hmac.compare_digest(token, expected):
+        return jsonify(error="画面を再読み込みしてからもう一度お試しください。"), 403
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="保存する結果が正しくありません。"), 400
+    dish = data.get("dish")
+    items = data.get("ingredients")
+    save_key = data.get("save_key")
+    if (not isinstance(dish, str) or not dish.strip() or len(dish) > 100
+            or not isinstance(items, list) or len(items) > MAX_INGREDIENTS
+            or not isinstance(save_key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", save_key)):
+        return jsonify(error="保存する結果が正しくありません。"), 400
+
+    ingredients = []
+    calories = 0
+    matched = 0
+    for item in items:
+        if not isinstance(item, dict):
+            return jsonify(error="材料の内容が正しくありません。"), 400
+        name, grams, food_id = item.get("name"), item.get("grams"), item.get("food_id")
+        if (not isinstance(name, str) or len(name) > 80
+                or (grams is not None and (isinstance(grams, bool) or not isinstance(grams, (int, float))
+                    or not 0.1 <= grams <= 10000 or not math.isfinite(grams)))
+                or (food_id is not None and (not isinstance(food_id, str) or food_id not in FOODS_BY_ID))):
+            return jsonify(error="材料の内容が正しくありません。"), 400
+        food = FOODS_BY_ID.get(food_id)
+        ingredients.append({
+            "name": name,
+            "grams": grams,
+            "food_name": food["name"] if food else None,
+            "kcal_per_100g": food["kcal_per_100g"] if food else None,
+        })
+        if food and grams is not None:
+            calories += food["kcal_per_100g"] * grams / 100
+            matched += 1
+
+    try:
+        account = Account.query.filter_by(email=session["email"]).one()
+        if history_id is None:
+            entry = CalorieHistory.query.filter_by(account_id=account.id, save_key=save_key).first()
+            if entry is None:
+                entry = CalorieHistory(account_id=account.id, save_key=save_key)
+                db.session.add(entry)
+        else:
+            entry = CalorieHistory.query.filter_by(id=history_id, account_id=account.id, save_key=save_key).first()
+            if entry is None:
+                return jsonify(error="履歴が見つかりません。"), 404
+        entry.dish = dish
+        entry.ingredients = ingredients
+        entry.total_calories = math.floor(calories + 0.5) if matched else None
+        entry.unmatched_count = len(items) - matched
+        db.session.commit()
+        return jsonify(id=entry.id)
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("カロリー計算履歴の保存に失敗しました")
+        return jsonify(error="履歴を保存できませんでした。もう一度お試しください。"), 500

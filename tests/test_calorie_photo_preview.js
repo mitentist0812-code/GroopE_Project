@@ -14,7 +14,7 @@ function setup() {
     "meal-photo", "photo-picker", "photo-preview", "preview-image", "preview-name",
     "change-photo", "photo-error", "estimate-button", "result-message", "calorie-results",
     "dish-name", "ingredient-details", "ingredient-list", "calorie-total", "add-ingredient",
-    "edit-ingredients",
+    "edit-ingredients", "history-save-status", "retry-history-save",
   ]) {
     handlers[id] = {};
     elements[id] = {

@@ -20,8 +20,14 @@ from flask import (
 )
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from apps.allergens import AllergenModelUnavailable, analyze_allergens
-from apps.auth.models import Account
+from apps.allergens import (
+    AllergenModelUnavailable,
+    USER_ALLERGEN_MODEL_LABELS,
+    UNSUPPORTED_USER_ALLERGENS,
+    analyze_allergens,
+    matching_user_allergens,
+)
+from apps.auth.models import Account, AccountPreference
 from apps.extensions import db
 from apps.home.places import PlacesAPIError, photo_url, place_details
 from apps.review_utils import current_reviewer, load_reviews, save_review_form
@@ -78,6 +84,25 @@ def _record_place_view(reviewer, place_id):
     return False
 
 
+def _reviewer_allergies(reviewer):
+    if reviewer is None:
+        return [], False
+    try:
+        preferences = AccountPreference.query.filter_by(
+            account_id=reviewer.id,
+        ).first()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("利用者のアレルギー設定を取得できませんでした")
+        return [], True
+
+    allergies = preferences.allergies if preferences else []
+    return [
+        allergy for allergy in allergies
+        if allergy in USER_ALLERGEN_MODEL_LABELS
+    ], False
+
+
 @restaurants.get("/")
 def restaurant():
     return render_template("restaurants/restaurant.html")
@@ -86,6 +111,7 @@ def restaurant():
 @restaurants.get("/detail")
 def restaurant_detail():
     reviewer = current_reviewer()
+    user_allergies, user_settings_error = _reviewer_allergies(reviewer)
     is_favorite = bool(
         reviewer
         and PlaceFavorite.query.filter_by(
@@ -108,6 +134,8 @@ def restaurant_detail():
         is_favorite=is_favorite,
         history_error=history_error,
         review_sort=request.args.get("sort", "newest"),
+        user_allergies=user_allergies,
+        user_settings_error=user_settings_error,
     ))
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -175,6 +203,12 @@ def place_detail(place_id):
             current_app.logger.exception("店舗写真の取得に失敗しました")
             photo_error = "店舗写真を取得できませんでした。"
 
+    reviewer = current_reviewer()
+    user_allergies, user_settings_error = _reviewer_allergies(reviewer)
+    unsupported_user_allergies = [
+        allergy for allergy in user_allergies
+        if allergy in UNSUPPORTED_USER_ALLERGENS
+    ]
     store_menu_matches = []
     store_menus_available = False
     store_menu_error = False
@@ -197,6 +231,10 @@ def place_detail(place_id):
                 {
                     "name": menu.name,
                     "possible_allergens": possible_allergens,
+                    "matching_user_allergens": matching_user_allergens(
+                        user_allergies,
+                        possible_allergens,
+                    ),
                 }
                 for menu, possible_allergens in zip(store_menus, predictions)
                 if possible_allergens
@@ -211,7 +249,6 @@ def place_detail(place_id):
         current_app.logger.exception("店舗メニューのアレルゲン候補判定に失敗しました")
         allergen_model_error = True
 
-    reviewer = current_reviewer()
     is_favorite = bool(
         reviewer
         and PlaceFavorite.query.filter_by(
@@ -240,6 +277,9 @@ def place_detail(place_id):
         store_menus_available=store_menus_available,
         store_menu_error=store_menu_error,
         allergen_model_error=allergen_model_error,
+        user_allergies=user_allergies,
+        user_settings_error=user_settings_error,
+        unsupported_user_allergies=unsupported_user_allergies,
         local_place=local_account is not None,
         reservation_available=(
             restaurant_account is not None and not store_menu_error

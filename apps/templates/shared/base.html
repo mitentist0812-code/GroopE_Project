@@ -38,6 +38,9 @@
             {% set active_nav = self.active_nav() | trim %}
             <nav id="sidebar" aria-label="メインメニュー">
                 <ul class="sidebar-menu">
+                    {% if session.get("email") %}
+                    <li class="sidebar-account-name">{{ session.get("name", session.get("email")) }}</li>
+                    {% endif %}
                     <li><a href="{{ url_for('home.top') }}" {% if active_nav == "top" %}id="current" aria-current="page"{% endif %}>ホーム</a></li>
                     <li><a {% if session.get("email") and session.get("account_type") != "restaurant" %}href="{{ url_for('nutrition.calorie') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}" class="auth-disabled-control"{% endif %} {% if active_nav == "calorie" %}id="current" aria-current="page"{% endif %}>カロリー計算</a></li>
                     <li><a {% if session.get("email") and session.get("account_type") != "restaurant" %}href="{{ url_for('recipes.post_recipe') }}"{% else %}role="link" aria-disabled="true" tabindex="-1" title="{{ '店舗アカウントでは利用できません' if session.get('account_type') == 'restaurant' else 'ログインすると利用できます' }}" class="auth-disabled-control"{% endif %} {% if active_nav == "post_recipe" %}id="current" aria-current="page"{% endif %}>レシピ投稿</a></li>
@@ -56,11 +59,17 @@
             {% block content %}{% endblock %}
         </main>
         {% block after_content %}{% endblock %}
+        {% if session.get("email") %}
+        <form id="logout-form" action="{{ url_for('auth.logout') }}" method="post" hidden>
+            <input type="hidden" name="csrf_token" value="{{ logout_csrf_token() }}">
+        </form>
+        {% endif %}
     {% endblock %}
 
     {% block logout_script %}
         <script src="{{ url_for('static', filename='js/logout.js') }}" defer></script>
     {% endblock %}
+    <script src="{{ url_for('static', filename='js/sidebar-menu.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

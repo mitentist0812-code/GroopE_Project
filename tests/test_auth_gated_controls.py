@@ -82,6 +82,10 @@ class AuthGatedControlsTests(unittest.TestCase):
         for account_type in ("user", "restaurant"):
             with self.subTest(account_type=account_type):
                 self.login_session(account_type)
+                home = self.client.get("/").get_data(as_text=True)
+                form = home.split('<form id="logout-form"', 1)[1].split("</form>", 1)[0]
+                self.assertIn('action="/auth/logout" method="post"', form)
+                token = re.search(r'name="csrf_token" value="([^"]+)"', form).group(1)
                 response = self.client.get("/auth/logout")
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.headers["Cache-Control"], "no-store")
@@ -89,7 +93,7 @@ class AuthGatedControlsTests(unittest.TestCase):
                 self.assertIn("ログアウトしますか？", text)
                 self.assertIn(">いいえ</a>", text)
                 self.assertIn(">はい</button>", text)
-                token = re.search(r'name="csrf_token" value="([^"]+)"', text).group(1)
+                self.assertIn(f'name="csrf_token" value="{token}"', text)
                 self.client.get("/")
                 with self.client.session_transaction() as session:
                     self.assertEqual(session["account_type"], account_type)

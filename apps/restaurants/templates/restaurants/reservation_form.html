@@ -36,24 +36,3 @@
   <p class="reservation-form-disclaimer">営業時間や空席は自動で確認されません。予約状況はマイページで確認してください。</p>
 </section>
 {% endblock %}
-
-{% block scripts %}
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = document.querySelector("#sidebar");
-    const toggle = document.querySelector(".sidebar-toggle");
-    if (!sidebar || !toggle) return;
-    const setOpen = (open) => {
-      sidebar.classList.toggle("is-open", open);
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
-    };
-    toggle.addEventListener("click", () => setOpen(!sidebar.classList.contains("is-open")));
-    sidebar.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
-    document.addEventListener("click", (event) => {
-      if (window.innerWidth <= 760 && sidebar.classList.contains("is-open") &&
-          !sidebar.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
-    });
-  });
-</script>
-{% endblock %}

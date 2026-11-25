@@ -8,8 +8,9 @@ from apps.allergens import (
     AllergenModelUnavailable,
     _possible_allergens,
     analyze_allergens,
+    matching_user_allergens,
 )
-from apps.auth.models import Account
+from apps.auth.models import Account, AccountPreference
 from apps.extensions import db
 from apps.recipes.models import Recipe_list
 from apps.restaurants.models import RestaurantMenu
@@ -55,6 +56,12 @@ class AllergenTests(unittest.TestCase):
                 name="メニュー未登録店",
                 place_id="place456",
             )
+            self.user = Account(
+                email="user@example.com",
+                password_hash="unused",
+                account_type="user",
+                name="アレルギー利用者",
+            )
             self.recipe = Recipe_list(
                 recipe_name="たまごケーキ",
                 ingredients="卵 1個\n小麦粉 50g",
@@ -63,6 +70,7 @@ class AllergenTests(unittest.TestCase):
             db.session.add_all([
                 self.restaurant,
                 self.other_restaurant,
+                self.user,
                 self.recipe,
             ])
             db.session.flush()
@@ -82,6 +90,7 @@ class AllergenTests(unittest.TestCase):
             ])
             db.session.commit()
             self.recipe_id = self.recipe.id
+            self.user_id = self.user.id
 
     def tearDown(self):
         with self.app.app_context():
@@ -97,6 +106,16 @@ class AllergenTests(unittest.TestCase):
             ),
             ["小麦・グルテン", "乳"],
         )
+
+    def test_user_allergies_match_supported_model_candidates(self):
+        self.assertEqual(
+            matching_user_allergens(
+                ["卵", "エビ", "そば"],
+                ["卵", "甲殻類"],
+            ),
+            ["卵", "エビ"],
+        )
+        self.assertEqual(matching_user_allergens(["そば"], ["小麦・グルテン"]), [])
 
     def test_empty_texts_skip_model_loading(self):
         with patch("apps.allergens._load_model") as load_model:
@@ -138,6 +157,30 @@ class AllergenTests(unittest.TestCase):
         self.assertIn("料理名だけからの推定です", text)
         details.assert_called_once_with("place123")
         analyze.assert_called_once_with(["だし巻き定食", "野菜カレー"])
+
+    @patch("apps.restaurants.views.place_details", return_value=PLACE)
+    def test_store_detail_warns_when_menu_matches_saved_allergy(self, details):
+        with self.app.app_context():
+            db.session.add(AccountPreference(
+                account_id=self.user_id,
+                allergies=["卵"],
+            ))
+            db.session.commit()
+        with self.client.session_transaction() as session:
+            session["email"] = self.user.email
+
+        with patch(
+            "apps.restaurants.views.analyze_allergens",
+            return_value=[["卵"], []],
+        ):
+            response = self.client.get("/restaurants/detail/place123")
+
+        text = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("設定中のアレルギー（卵）に該当する可能性のあるメニューがあります", text)
+        self.assertIn("だし巻き定食", text)
+        self.assertNotIn("野菜カレー</strong>：", text)
+        details.assert_called_once_with("place123")
 
     @patch("apps.restaurants.views.place_details", return_value=PLACE)
     def test_store_without_registered_menus_is_not_reported_as_clear(

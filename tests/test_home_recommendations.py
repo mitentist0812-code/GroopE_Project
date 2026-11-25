@@ -215,6 +215,9 @@ class HomeRecommendationTests(unittest.TestCase):
         text = self.client.get("/").get_data(as_text=True)
         self.assertNotIn('name="include_mood"', text)
         self.assertNotIn('id="mood-search-confirm"', text)
+        search_form = text.split('id="recommend"', 1)[1].split("</form>", 1)[0]
+        self.assertIn('<details class="mood-picker" id="mood-picker">', search_form)
+        self.assertEqual(search_form.count('class="mood-card"'), 6)
 
     @patch("apps.home.views.urlopen")
     def test_direct_link_does_not_call_ollama(self, urlopen):

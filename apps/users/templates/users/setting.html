@@ -7,28 +7,58 @@
 
 {% block content %}
 <h2>設定</h2>
+        {% if settings_error %}
+        <p class="error-message" role="alert">{{ settings_error }}</p>
+        {% endif %}
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <p class="{{ category }}-message" role="status">{{ message }}</p>
+        {% endfor %}
+        {% set form_name = settings_values.name if settings_values else account.name %}
+        {% set form_email = settings_values.email if settings_values else account.email %}
+        {% set form_favorite_foods = preferences.favorite_foods if preferences else "" %}
+        {% set form_disliked_foods = preferences.disliked_foods if preferences else "" %}
+        {% set form_allergies = settings_values.allergies if settings_values else (preferences.allergies if preferences and preferences.allergies else []) %}
+        {% set form_religion = preferences.religion if preferences else "" %}
+        {% set form_autofill_email = settings_values.autofill_email if settings_values else (preferences.autofill_email if preferences else false) %}
+        <form method="post" action="{{ url_for('users.setting') }}" id="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 		<div class="settings-list">
 			<section class="settings-section" aria-labelledby="account-settings">
 				<h3 id="account-settings">アカウント設定</h3>
 				<div class="setting-row">
 					<div><span class="setting-label">ユーザー名</span><p class="setting-description">画面に表示する名前</p></div>
-					<input class="setting-control" type="text" value="{{ account.name }}" aria-label="ユーザー名">
+					<input class="setting-control" type="text" name="name" value="{{ form_name }}" maxlength="100" required aria-label="ユーザー名">
 				</div>
 				<div class="setting-row">
 					<div><span class="setting-label">メールアドレス</span><p class="setting-description">アカウントに登録するメールアドレスを変更します</p></div>
-					<input class="setting-control" type="email" id="account-email" name="email" placeholder="{{ account.email }}" autocomplete="email" aria-label="新しいメールアドレス">
+					<input class="setting-control" type="email" id="account-email" name="email" value="{{ form_email }}" maxlength="255" autocomplete="email" required aria-label="メールアドレス">
 				</div>
+			</section>
+
+			<section class="settings-section" aria-labelledby="login-settings">
+				<h3 id="login-settings">ログイン設定</h3>
+				<div class="setting-row">
+					<div>
+						<span class="setting-label">メールアドレスの自動入力</span>
+						<p class="setting-description">このブラウザーにメールアドレスを記憶します。パスワードは保存しません。共有端末ではオフにしてください。</p>
+					</div>
+					<label class="toggle">
+						<input type="checkbox" id="remember-login-email" name="autofill_email" value="1"{% if form_autofill_email %} checked{% endif %} data-email="{{ account.email }}">
+						有効にする
+					</label>
+				</div>
+				<p id="login-email-autofill-error" role="alert" hidden>ブラウザーの保存領域を利用できません。ログイン画面でメールアドレスの自動入力ができない可能性があります。</p>
 			</section>
 
 			<section class="settings-section" aria-labelledby="search-settings">
 				<h3 id="search-settings">検索設定</h3>
 				<div class="setting-row">
-					<div><span class="setting-label">現在地の利用</span><p class="setting-description">近くのお店を検索するときに現在地を利用します</p></div>
-					<label class="toggle"><input type="checkbox" checked> 利用する</label>
+					<div><span class="setting-label">現在地の利用</span><p class="setting-description">未実装：現在地の利用はブラウザーの位置情報の許可設定で管理してください。</p></div>
+					<label class="toggle"><input type="checkbox" name="use_location" value="1" disabled> 利用する</label>
 				</div>
 				<div class="setting-row">
-					<div><span class="setting-label">健康管理モード</span><p class="setting-description">カロリーや栄養バランスを意識したお店を優先して表示します</p></div>
-					<label class="toggle"><input type="checkbox" aria-label="健康管理モード"> 有効にする</label>
+					<div><span class="setting-label">健康管理モード</span><p class="setting-description">未実装：検索結果には反映されません。</p></div>
+					<label class="toggle"><input type="checkbox" name="health_mode" value="1" disabled aria-label="健康管理モード"> 有効にする</label>
 				</div>
 			</section>
 
@@ -38,17 +68,17 @@
 				<div class="setting-row">
 					<div>
 						<span class="setting-label">好きな食べ物</span>
-						<p class="setting-description">好きな食べ物を入力してください</p>
+						<p class="setting-description">未実装：検索結果には反映されません。</p>
 					</div>
-					<input class="setting-control" type="text" placeholder="例：カレー、寿司" aria-label="好きな食べ物">
+					<input class="setting-control" type="text" name="favorite_foods" value="{{ form_favorite_foods }}" maxlength="500" placeholder="例：カレー、寿司" aria-label="好きな食べ物" disabled>
 				</div>
 
 				<div class="setting-row">
 					<div>
 						<span class="setting-label">苦手な食べ物</span>
-						<p class="setting-description">苦手な食べ物を入力してください</p>
+						<p class="setting-description">未実装：検索結果には反映されません。</p>
 					</div>
-					<input class="setting-control" type="text" placeholder="例：納豆、ピーマン" aria-label="苦手な食べ物">
+					<input class="setting-control" type="text" name="disliked_foods" value="{{ form_disliked_foods }}" maxlength="500" placeholder="例：納豆、ピーマン" aria-label="苦手な食べ物" disabled>
 				</div>
 
 				<div class="setting-row">
@@ -64,25 +94,25 @@
 
 						<div class="food-checkboxes">
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="卵">🥚 卵
+								<input type="checkbox" name="allergies" value="卵"{% if "卵" in form_allergies %} checked{% endif %}>🥚 卵
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="乳">🥛 乳
+								<input type="checkbox" name="allergies" value="乳"{% if "乳" in form_allergies %} checked{% endif %}>🥛 乳
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="小麦">🌾 小麦
+								<input type="checkbox" name="allergies" value="小麦"{% if "小麦" in form_allergies %} checked{% endif %}>🌾 小麦
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="そば">🍜 そば
+								<input type="checkbox" name="allergies" value="そば"{% if "そば" in form_allergies %} checked{% endif %}>🍜 そば
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="落花生">🥜 落花生
+								<input type="checkbox" name="allergies" value="落花生"{% if "落花生" in form_allergies %} checked{% endif %}>🥜 落花生
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="エビ">🦐 エビ
+								<input type="checkbox" name="allergies" value="エビ"{% if "エビ" in form_allergies %} checked{% endif %}>🦐 エビ
 							</label>
 							<label class="food-checkbox">
-								<input type="checkbox" name="allergy" value="カニ">🦀 カニ
+								<input type="checkbox" name="allergies" value="カニ"{% if "カニ" in form_allergies %} checked{% endif %}>🦀 カニ
 							</label>
 						</div>
 					</div>
@@ -91,83 +121,30 @@
 				<div class="setting-row">
 					<div>
 						<span class="setting-label">宗教</span>
-						<p class="setting-description">食事に関する宗教上の制限があれば選択してください</p>
+						<p class="setting-description">未実装：検索結果には反映されません。</p>
 					</div>
-					<select class="setting-control" aria-label="宗教">
-                        <option value="">選択してください</option>
-                        <option value="特になし">特になし</option>
-                        <option value="イスラム教">イスラム教</option>
-                        <option value="キリスト教">キリスト教</option>
-                        <option value="ユダヤ教">ユダヤ教</option>
-                        <option value="仏教">仏教</option>
-                        <option value="ヒンドゥー教">ヒンドゥー教</option>
-                        <option value="その他">その他</option>
+					<select class="setting-control" name="religion" aria-label="宗教" disabled>
+                        <option value=""{% if not form_religion %} selected{% endif %}>選択してください</option>
+                        <option value="特になし"{% if form_religion == "特になし" %} selected{% endif %}>特になし</option>
+                        <option value="イスラム教"{% if form_religion == "イスラム教" %} selected{% endif %}>イスラム教</option>
+                        <option value="キリスト教"{% if form_religion == "キリスト教" %} selected{% endif %}>キリスト教</option>
+                        <option value="ユダヤ教"{% if form_religion == "ユダヤ教" %} selected{% endif %}>ユダヤ教</option>
+                        <option value="仏教"{% if form_religion == "仏教" %} selected{% endif %}>仏教</option>
+                        <option value="ヒンドゥー教"{% if form_religion == "ヒンドゥー教" %} selected{% endif %}>ヒンドゥー教</option>
+                        <option value="その他"{% if form_religion == "その他" %} selected{% endif %}>その他</option>
                     </select>
 				</div>
 			</section>
 		</div>
 
 		<div class="actions">
-			<button type="button" class="button button-secondary">キャンセル</button>
-			<button type="button" class="button button-primary" id="saveButton">
+			<button type="submit" class="button button-primary" id="saveButton">
 				変更を保存
 			</button>
 		</div>
+        </form>
 {% endblock %}
 
 {% block scripts %}
-<script>
-        const emailInput = document.getElementById("account-email");
-        try {
-            emailInput.value = localStorage.getItem("accountEmail") || "";
-        } catch (error) {
-            console.error("登録済みメールアドレスを読み込めませんでした。", error);
-        }
-
-        document.getElementById("saveButton").addEventListener("click", () => {
-            const email = emailInput.value.trim();
-            emailInput.value = email;
-            if (email && !emailInput.checkValidity()) {
-                emailInput.reportValidity();
-                return;
-            }
-
-            try {
-                if (email) localStorage.setItem("accountEmail", email);
-                alert(email ? "メールアドレスを変更しました。" : "設定を保存しました。");
-            } catch (error) {
-                console.error("メールアドレスを保存できませんでした。", error);
-                alert("メールアドレスを保存できませんでした。もう一度お試しください。");
-            }
-        });
-    </script>
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const sidebar = document.querySelector("#sidebar");
-        const toggle = document.querySelector(".sidebar-toggle");
-
-        if (!sidebar || !toggle) return;
-
-        const setOpen = (open) => {
-            sidebar.classList.toggle("is-open", open);
-            toggle.setAttribute("aria-expanded", open ? "true" : "false");
-            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
-        };
-
-        toggle.addEventListener("click", () => {
-            setOpen(!sidebar.classList.contains("is-open"));
-        });
-
-        sidebar.querySelectorAll("a").forEach((link) => {
-            link.addEventListener("click", () => setOpen(false));
-        });
-
-        document.addEventListener("click", (event) => {
-            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
-            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
-                setOpen(false);
-            }
-        });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/login-email-autofill.js') }}" defer></script>
 {% endblock %}

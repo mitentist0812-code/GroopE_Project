@@ -7,6 +7,20 @@ MODEL_DIRECTORY = Path(__file__).resolve().parents[1] / "14-allergens-0.3b"
 ALLERGEN_THRESHOLD = 0.5
 MAX_TEXT_CHARACTERS = 8000
 MAX_BATCH_SIZE = 16
+USER_ALLERGEN_MODEL_LABELS = {
+    "卵": ("卵",),
+    "乳": ("乳",),
+    "小麦": ("小麦・グルテン",),
+    "そば": (),
+    "落花生": ("落花生",),
+    "エビ": ("甲殻類",),
+    "カニ": ("甲殻類",),
+}
+UNSUPPORTED_USER_ALLERGENS = tuple(
+    allergy
+    for allergy, labels in USER_ALLERGEN_MODEL_LABELS.items()
+    if not labels
+)
 
 ALLERGEN_NAMES_JA = {
     "celery": "セロリ",
@@ -72,6 +86,18 @@ def _possible_allergens(
         ALLERGEN_NAMES_JA[label]
         for label, score in zip(labels, scores)
         if label in ALLERGEN_NAMES_JA and score >= ALLERGEN_THRESHOLD
+    ]
+
+
+def matching_user_allergens(
+    user_allergies: Sequence[str],
+    possible_allergens: Sequence[str],
+) -> List[str]:
+    detected = set(possible_allergens)
+    return [
+        allergy
+        for allergy in user_allergies
+        if detected.intersection(USER_ALLERGEN_MODEL_LABELS.get(allergy, ()))
     ]
 
 

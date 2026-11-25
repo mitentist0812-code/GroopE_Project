@@ -10,14 +10,15 @@
 			<div>
 				<p class="history-eyebrow">YOUR ACTIVITY</p>
 				<h2>閲覧履歴</h2>
-				<p>閲覧したお店やレシピを振り返れます。</p>
+				<p>閲覧したお店やレシピ、カロリー計算の結果を振り返れます。</p>
 			</div>
 			<a href="{{ url_for('users.mypage') }}" class="history-home-link">マイページへ戻る</a>
 		</div>
 
-		<div class="history-tabs" role="tablist" aria-label="閲覧履歴の種類">
+		<div class="history-tabs" role="tablist" aria-label="履歴の種類">
 			<button type="button" id="shop-history-tab" class="history-tab active" role="tab" aria-selected="true" aria-controls="shop-history-panel">店舗</button>
 			<button type="button" id="recipe-history-tab" class="history-tab" role="tab" aria-selected="false" aria-controls="recipe-history-panel" tabindex="-1">レシピ</button>
+			<button type="button" id="calorie-history-tab" class="history-tab" role="tab" aria-selected="false" aria-controls="calorie-history-panel" tabindex="-1">カロリー計算</button>
 		</div>
 
 		<section id="shop-history-panel" class="history-panel active" role="tabpanel" aria-labelledby="shop-history-tab">
@@ -66,6 +67,38 @@
 		<section id="recipe-history-panel" class="history-panel" role="tabpanel" aria-labelledby="recipe-history-tab" hidden>
 			<div class="history-list" id="recipe-history-list" aria-label="レシピの閲覧履歴"></div>
 		</section>
+
+		<section id="calorie-history-panel" class="history-panel" role="tabpanel" aria-labelledby="calorie-history-tab" hidden>
+			<div class="history-list" aria-label="カロリー計算履歴">
+			{% for entry in calorie_history %}
+			<article class="history-item">
+				<div class="history-header">
+					<h3><span class="history-number">{{ "%02d"|format(loop.index) }}</span>{{ entry.dish }}</h3>
+					<time class="history-date" datetime="{{ entry.created_at.isoformat() }}">{{ entry.created_at.strftime("%Y年%m月%d日 %H:%M") }}</time>
+				</div>
+				{% if entry.total_calories is none %}
+				<p>合計は未計算です。</p>
+				{% elif entry.unmatched_count %}
+				<p>照合済みの材料の小計：約{{ entry.total_calories }} kcal（{{ entry.unmatched_count }}件は未計算）</p>
+				{% else %}
+				<p>推定合計：約{{ entry.total_calories }} kcal</p>
+				{% endif %}
+				<details>
+					<summary>材料一覧を見る</summary>
+					{% for item in entry.ingredients %}
+					<p>{{ item.name or "材料名未入力" }}：{{ item.grams if item.grams is not none else "未入力" }} g
+						{% if item.food_name %}（{{ item.food_name }}：{{ item.kcal_per_100g }} kcal / 100g）{% else %}（食品未選択）{% endif %}</p>
+					{% else %}
+					<p>材料はありません。</p>
+					{% endfor %}
+				</details>
+			</article>
+			{% else %}
+			<p class="history-empty">カロリー計算の履歴はまだありません。</p>
+			{% endfor %}
+			</div>
+			<p>数値は目安です。実際のカロリーは食材や量、調理方法によって異なります。</p>
+		</section>
 {% endblock %}
 
 {% block scripts %}
@@ -102,6 +135,9 @@
                 historyTabs[(index + direction + historyTabs.length) % historyTabs.length].click();
             });
         });
+        if (window.location.hash === "#calorie-history-panel") {
+            document.getElementById("calorie-history-tab").click();
+        }
 
         const recipeHistoryList = document.querySelector("#recipe-history-list");
         const recipeCatalog = {
@@ -169,31 +205,6 @@
             });
         }
 
-        const sidebar = document.querySelector("#sidebar");
-        const toggle = document.querySelector(".sidebar-toggle");
-
-        if (!sidebar || !toggle) return;
-
-        const setOpen = (open) => {
-            sidebar.classList.toggle("is-open", open);
-            toggle.setAttribute("aria-expanded", open ? "true" : "false");
-            toggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
-        };
-
-        toggle.addEventListener("click", () => {
-            setOpen(!sidebar.classList.contains("is-open"));
-        });
-
-        sidebar.querySelectorAll("a").forEach((link) => {
-            link.addEventListener("click", () => setOpen(false));
-        });
-
-        document.addEventListener("click", (event) => {
-            if (window.innerWidth > 760 || !sidebar.classList.contains("is-open")) return;
-            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
-                setOpen(false);
-            }
-        });
     });
 </script>
 {% endblock %}

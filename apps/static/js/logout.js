@@ -1,22 +1,33 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("logout-confirm-form");
-  if (!form) return;
-
-  form.addEventListener("submit", () => {
+  const clearSessionStorage = () => {
     try {
       window.sessionStorage.clear();
     } catch (error) {
       console.error("セッションストレージを消去できませんでした。", error);
     }
-  });
+  };
 
-  const cancel = document.getElementById("logout-cancel");
-  cancel.addEventListener("click", (event) => {
-    if (!document.referrer) return;
-    const previous = new URL(document.referrer);
-    if (previous.origin === window.location.origin && previous.pathname !== window.location.pathname) {
+  const form = document.getElementById("logout-form");
+  const link = document.querySelector("a.logout");
+  if (form && link) {
+    form.addEventListener("submit", clearSessionStorage);
+    link.addEventListener("click", (event) => {
       event.preventDefault();
-      window.history.back();
-    }
-  });
+      if (window.confirm("ログアウトしますか？")) form.requestSubmit();
+    });
+  }
+
+  const fallbackForm = document.getElementById("logout-confirm-form");
+  if (fallbackForm) fallbackForm.addEventListener("submit", clearSessionStorage);
+  const cancel = document.getElementById("logout-cancel");
+  if (cancel) {
+    cancel.addEventListener("click", (event) => {
+      if (!document.referrer) return;
+      const previous = new URL(document.referrer);
+      if (previous.origin === window.location.origin && previous.pathname !== window.location.pathname) {
+        event.preventDefault();
+        window.history.back();
+      }
+    });
+  }
 });

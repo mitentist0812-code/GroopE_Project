@@ -27,12 +27,12 @@
           <button type="button" id="change-photo">画像を変更する</button>
         </div>
 
-        <button type="button" id="estimate-button" class="estimate-button" data-authenticated="{{ 'true' if session.get('email') and session.get('account_type') != 'restaurant' else 'false' }}" data-analyze-url="{{ url_for('nutrition.analyze_calorie_photo') }}" data-foods-url="{{ url_for('nutrition.food_search') }}" data-csrf-token="{{ calorie_csrf }}" disabled>
+        <button type="button" id="estimate-button" class="estimate-button" data-authenticated="{{ 'true' if session.get('email') and session.get('account_type') != 'restaurant' else 'false' }}" data-analyze-url="{{ url_for('nutrition.analyze_calorie_photo') }}" data-foods-url="{{ url_for('nutrition.food_search') }}" data-history-url="{{ url_for('nutrition.save_calorie_history') }}" data-csrf-token="{{ calorie_csrf }}" disabled>
           カロリーを推定する
         </button>
         {% if session.get("account_type") == "restaurant" %}<p class="auth-required-note">店舗アカウントではカロリー計算を利用できません。</p>
         {% elif not session.get("email") %}<p class="auth-required-note">カロリー計算を利用するにはログインしてください。</p>{% endif %}
-        <p class="privacy-note">推定ボタンを押すと写真をGoogle Gemini APIに送信します。無料枠では送信内容がGoogleのサービス改善に使用される場合があります。写真は記録として保存しませんが、サーバー上に一時ファイルが作られる場合があります。</p>
+        <p class="privacy-note">推定ボタンを押すと写真をGoogle Gemini APIに送信します。無料枠では送信内容がGoogleのサービス改善に使用される場合があります。推定結果と材料は履歴に自動保存します。写真は記録として保存しませんが、サーバー上に一時ファイルが作られる場合があります。</p>
       </section>
 
       <section class="calorie-result-card" aria-labelledby="result-title">
@@ -44,6 +44,9 @@
           <h4 id="dish-name"></h4>
           <p>材料と量はAIの推定です。食品成分表から自動選択した食品を確認し、必要に応じて編集してください。</p>
           <p id="calorie-total" role="status"></p>
+          <p id="history-save-status" role="status" aria-live="polite"></p>
+          <button type="button" id="retry-history-save" hidden>履歴の保存を再試行</button>
+          <a href="{{ url_for('users.history') }}#calorie-history-panel">カロリー計算履歴を見る</a>
           <details id="ingredient-details">
             <summary><span class="ingredient-details-closed">材料一覧を見る</span><span class="ingredient-details-open">材料一覧を閉じる</span></summary>
             <button type="button" id="edit-ingredients" aria-expanded="false">材料を編集</button>

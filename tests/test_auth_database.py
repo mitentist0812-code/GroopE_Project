@@ -41,6 +41,14 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertIs(recipe_models.db, db)
         self.assertIs(Account.metadata, db.metadata)
 
+    def test_auth_headers_do_not_render_a_second_brand_mark(self):
+        for path in ("/auth/login", "/auth/signup", "/auth/signup/restaurant"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                header = response.get_data(as_text=True).split('<header class="brand">', 1)[1].split("</header>", 1)[0]
+                self.assertIn('<h1><a href="/auth/login">一飯一会</a></h1>', header)
+                self.assertNotIn('class="brand-mark"', header)
+
     def test_user_account_persists_and_can_log_in_after_app_restart(self):
         response = self.client.post("/auth/signup", data={
             "user-name": "Test User",

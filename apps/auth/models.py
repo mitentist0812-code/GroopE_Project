@@ -23,3 +23,27 @@ class Account(db.Model):
     phone = db.Column(db.String(30))
     place_id = db.Column(db.String(256))
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    preferences = db.relationship(
+        "AccountPreference",
+        back_populates="account",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+
+class AccountPreference(db.Model):
+    __tablename__ = "account_preference"
+
+    account_id = db.Column(
+        db.Integer,
+        db.ForeignKey("account.id"),
+        primary_key=True,
+    )
+    favorite_foods = db.Column(db.String(500), nullable=False, default="")
+    disliked_foods = db.Column(db.String(500), nullable=False, default="")
+    allergies = db.Column(db.JSON, nullable=False, default=list)
+    religion = db.Column(db.String(20), nullable=False, default="")
+    use_location = db.Column(db.Boolean, nullable=False, default=True)
+    health_mode = db.Column(db.Boolean, nullable=False, default=False)
+    autofill_email = db.Column(db.Boolean, nullable=False, default=False)
+    account = db.relationship("Account", back_populates="preferences")
